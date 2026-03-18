@@ -41,3 +41,26 @@ Designed for Railway.
 Owner-based auth is implemented for now via a placeholder `get_current_owner` dependency.
 Clerk JWT verification is planned for production.
 
+## Historical Data Migration
+
+One-time script to import all historical DJ set data from Google Sheets into PostgreSQL.
+
+Prerequisites:
+- `DATABASE_URL` set in `.env` pointing to your PostgreSQL instance
+- `GOOGLE_CREDENTIALS_JSON` set in `.env` with service account credentials
+
+Test run (one year only):
+```bash
+uv run python scripts/migrate_historical_data.py \
+  --collection path/to/deejay_set_collection.json \
+  --year 2026
+```
+
+Full migration:
+```bash
+uv run python scripts/migrate_historical_data.py \
+  --collection path/to/deejay_set_collection.json
+```
+
+After running, check `scripts/migration_report.txt` to verify counts.
+

@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Iterable
 from datetime import date as dt_date
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Track as DbTrack
@@ -83,8 +83,37 @@ async def reconcile_set_tracks(
     catalog_updated = 0
     catalog_unchanged = 0
 
-    for ingest_track in tracks:
+    ingest_tracks = list(tracks)
+
+    # Prefetch all catalogs matching the normalized (title, artist) pairs in this set.
+    # This removes the per-track SELECT and speeds up reconciliation significantly.
+    normalized_pairs: list[tuple[str, str]] = []
+    normalized_set: set[tuple[str, str]] = set()
+    work_items: list[tuple[IngestTrack, str, str]] = []
+
+    for ingest_track in ingest_tracks:
         norm_title, norm_artist = normalize_for_matching(ingest_track.title, ingest_track.artist)
+        pair = (norm_title, norm_artist)
+        if pair not in normalized_set:
+            normalized_set.add(pair)
+            normalized_pairs.append(pair)
+        work_items.append((ingest_track, norm_title, norm_artist))
+
+    catalog_by_pair: dict[tuple[str, str], TrackCatalog] = {}
+    if normalized_pairs:
+        result = await session.execute(
+            select(TrackCatalog).where(
+                TrackCatalog.owner_id == owner_id,
+                tuple_(TrackCatalog.title_normalized, TrackCatalog.artist_normalized).in_(
+                    normalized_pairs
+                ),
+            )
+        )
+        catalogs = result.scalars().all()
+        catalog_by_pair = {(c.title_normalized, c.artist_normalized): c for c in catalogs}
+
+    for ingest_track, norm_title, norm_artist in work_items:
+        pair = (norm_title, norm_artist)
 
         # Persist missing play_order as 0 (DB constraint). For data_quality,
         # we still use ingest_track.play_order.
@@ -109,14 +138,7 @@ async def reconcile_set_tracks(
         db_track.data_quality = _data_quality_for_ingest_track(ingest_track)
         session.add(db_track)
 
-        result = await session.execute(
-            select(TrackCatalog).where(
-                TrackCatalog.owner_id == owner_id,
-                TrackCatalog.title_normalized == norm_title,
-                TrackCatalog.artist_normalized == norm_artist,
-            )
-        )
-        catalog = result.scalar_one_or_none()
+        catalog = catalog_by_pair.get(pair)
 
         if catalog is None:
             catalog = TrackCatalog(
@@ -136,6 +158,8 @@ async def reconcile_set_tracks(
             )
             session.add(catalog)
             await session.flush()
+
+            catalog_by_pair[pair] = catalog
 
             # Confidence escalation for first play only happens via the "bpm + genre present" rule.
             catalog.confidence = _escalate_confidence(

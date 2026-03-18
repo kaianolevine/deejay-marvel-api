@@ -10,3 +10,9 @@
 - Date: 2026-03-18
 - Entry: "Added missing CSV columns (remix, label, comment) to tracks and catalog tables. Fixed play_order nullability. Added .env.example. Added TODO note for Phase 3 pipeline_evaluations expansion."
 
+## Version 0.1.2
+
+- Date: 2026-03-18
+- Entry: "Added historical data migration script with idempotency,
+  per-year verification report, and spot check against expected counts."
+

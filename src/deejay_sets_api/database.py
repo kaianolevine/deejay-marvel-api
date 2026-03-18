@@ -11,6 +11,14 @@ from .config import Settings, get_settings
 
 @lru_cache(maxsize=1)
 def _get_engine(database_url: str):
+    # Ensure async driver is used with SQLAlchemy async engine.
+    # If the URL comes in as `postgresql://...` (psycopg2 default), SQLAlchemy
+    # will attempt to import psycopg2 (not installed in this project).
+    if database_url.startswith("postgresql://") and "+asyncpg" not in database_url:
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if database_url.startswith("postgres://") and "+asyncpg" not in database_url:
+        database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+
     # SQLite in-memory DB needs a StaticPool to share the same connection across sessions.
     connect_args = {}
     poolclass = None
