@@ -19,6 +19,25 @@ FastAPI service providing:
 Copy `.env.example` to `.env` and adjust values as needed.
 In production, set `CORS_ORIGINS` to the specific Cloudflare Pages domain(s) rather than using the wildcard (`*`).
 
+### CORS: portfolio endpoints
+
+The Cloudflare Pages portfolio calls these **GET** routes from the browser (ensure `CORS_ORIGINS` allows your site):
+
+- `GET /v1/sets`
+- `GET /v1/sets/{id}`
+- `GET /v1/sets/{id}/tracks`
+- `GET /v1/tracks`
+- `GET /v1/tracks/{id}`
+- `GET /v1/catalog`
+- `GET /v1/catalog/{id}`
+- `GET /v1/stats/overview`
+- `GET /v1/stats/by-year`
+- `GET /v1/stats/top-artists`
+- `GET /v1/stats/top-tracks`
+- `GET /v1/evaluations`
+- `GET /v1/evaluations/summary`
+- `GET /v1/flags`
+
 ## Run the Server
 
 API docs are available at `http://localhost:8000/docs`.
