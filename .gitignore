@@ -1,12 +1,18 @@
 .venv/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Python build artifacts
+src/*.egg-info/
+*.egg-info/
+dist/
+build/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.ruff_cache/
-.mypy_cache/
-.DS_Store
 
 # Local env files
 .env
@@ -14,3 +20,8 @@ __pycache__/
 # Sentry artifacts
 .sentryclirc
 
+# Local scripts output
+scripts/output/
+
+# Committed data files that do not belong in the repo
+deejay_set_collection.json
