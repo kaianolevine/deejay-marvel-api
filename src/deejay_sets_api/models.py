@@ -4,6 +4,7 @@ import uuid
 
 from sqlalchemy import (
     UUID,
+    Boolean,
     Date,
     DateTime,
     Float,
@@ -154,10 +155,40 @@ class PipelineEvaluation(Base):
     dimension: Mapped[str] = mapped_column(String, nullable=False, index=True)
     severity: Mapped[str] = mapped_column(String, nullable=False, index=True)
 
-    # TODO: Phase 3 (AI evaluation) will expand this from freeform details into:
-    # run_id, finding, suggestion, standards_version.
+    # Legacy catch-all field. Prefer structured fields above.
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    run_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    finding: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suggestion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    standards_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    evaluated_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     created_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class FeatureFlag(Base):
+    __tablename__ = "feature_flags"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    owner_id: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        server_onupdate=func.now(),
+        nullable=False,
     )

@@ -5,11 +5,12 @@ from typing import Any
 import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from .config import get_settings
-from .routers import catalog, evaluations, ingest, sets, stats, tracks
+from .routers import catalog, evaluations, flags, ingest, sets, stats, tracks
 from .schemas import ErrorDetail, ErrorEnvelope
 
 
@@ -17,6 +18,14 @@ def _build_app() -> FastAPI:
     settings = get_settings()
 
     app = FastAPI(title="deejay-sets-api", version=settings.API_VERSION)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH"],
+        allow_headers=["*"],
+    )
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -74,6 +83,7 @@ def _build_app() -> FastAPI:
     app.include_router(tracks.router, prefix="/v1", tags=["tracks"])
     app.include_router(catalog.router, prefix="/v1", tags=["catalog"])
     app.include_router(evaluations.router, prefix="/v1", tags=["evaluations"])
+    app.include_router(flags.router, prefix="/v1", tags=["flags"])
     app.include_router(stats.router, prefix="/v1", tags=["stats"])
     app.include_router(ingest.router, prefix="/v1", tags=["ingest"])
 

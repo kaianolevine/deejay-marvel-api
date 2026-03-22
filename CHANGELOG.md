@@ -20,7 +20,35 @@
 - Date: 2026-03-18
 - Entry: "Redefined data_quality to use 4 enrichment fields (genre, length_secs, bpm, release_year) instead of 8. play_time and play_order are operational fields, not data quality signals."
 
+<<<<<<< HEAD
 ## Version 0.1.4
 - Date: 2026-03-18
 - Entry: "Updated get_current_owner to read X-Owner-Id request header. Falls back to settings.OWNER_ID if header not present."
+=======
+## Version 0.1.5
+- Date: 2026-03-19
+- Entry: "Added track_count to SetListItem and SetDetail responses."
+
+## Version 0.1.6
+- Date: 2026-03-19
+- Entry: "Added CORSMiddleware. Configurable via CORS_ORIGINS
+  environment variable."
+
+## Version 0.2.0
+- Date: 2026-03-19
+- Entry: "Expanded pipeline_evaluations table with structured fields.
+  Updated POST /v1/evaluations to accept structured findings.
+  Updated GET /v1/evaluations and summary endpoints."
+
+## Version 0.3.0
+- Date: 2026-03-19
+- Entry: "Added CI workflow (lint + test on every push/PR). Added
+  feature_flags table with three initial flags. Added
+  GET /v1/flags and PATCH /v1/flags/{name} endpoints.
+  Added flag check to ingest endpoint."
+
+## Version 0.3.1
+- Date: 2026-03-19
+- Entry: "Added track_count to SetListItem and SetDetail responses."
+>>>>>>> 07e66f13cda0e8c4501daa3b70a2928892b45f9c
 
