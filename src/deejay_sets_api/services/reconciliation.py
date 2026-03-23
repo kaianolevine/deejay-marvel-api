@@ -122,7 +122,6 @@ async def reconcile_set_tracks(
             owner_id=owner_id,
             set_id=set_id,
             catalog_id=None,
-            source="csv",
             play_order=play_order_db,
             play_time=ingest_track.play_time,
             label=ingest_track.label,

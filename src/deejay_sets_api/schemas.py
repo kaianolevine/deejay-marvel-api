@@ -41,9 +41,9 @@ class SetListItem(BaseModel):
 
 class TrackListItem(BaseModel):
     id: uuid.UUID
-    set_id: uuid.UUID | None = None
-    set_date: dt.date | None = None
-    venue: str | None = None
+    set_id: uuid.UUID
+    set_date: dt.date
+    venue: str
 
     play_order: int | None = None
     play_time: dt.time | None = None
@@ -81,7 +81,7 @@ class TrackDetail(TrackListItem):
 
 
 ConfidenceLevel = Literal["low", "medium", "high"]
-CatalogSource = Literal["play_history", "live_history", "library", "vdj_history", "manual"]
+CatalogSource = Literal["play_history", "library", "vdj_history", "manual"]
 
 
 class CatalogListItem(BaseModel):
@@ -111,9 +111,9 @@ class CatalogPatch(BaseModel):
 
 class CatalogPlayHistoryItem(BaseModel):
     id: uuid.UUID
-    set_id: uuid.UUID | None = None
-    set_date: dt.date | None = None
-    venue: str | None = None
+    set_id: uuid.UUID
+    set_date: dt.date
+    venue: str
 
     play_order: int | None = None
     play_time: dt.time | None = None
@@ -249,7 +249,7 @@ class IngestResponseData(BaseModel):
     catalog_unchanged: int
 
 
-class LivePlay(BaseModel):
+class LivePlayIngest(BaseModel):
     played_at: dt.datetime
     title: str
     artist: str
@@ -258,29 +258,22 @@ class LivePlay(BaseModel):
 
 
 class LivePlaysIngest(BaseModel):
-    plays: list[LivePlay]
+    plays: list[LivePlayIngest]
 
     model_config = ConfigDict(extra="forbid")
 
 
 class LivePlayRecord(BaseModel):
+    id: uuid.UUID
     played_at: dt.datetime
     title: str
     artist: str
-    set_id: uuid.UUID | None = None
-    genre: str | None = None
-    bpm: float | None = None
-    release_year: int | None = None
-    label: str | None = None
-    remix: str | None = None
-    needs_review: bool
-    source: str
+    created_at: dt.datetime
 
 
 class LivePlaysResponseData(BaseModel):
     inserted: int
-    merged: int
-    flagged_for_review: int
+    skipped: int
 
 
 def api_error(status_code: int, code: str, message: str) -> HTTPException:

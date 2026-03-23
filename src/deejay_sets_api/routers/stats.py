@@ -87,9 +87,7 @@ async def stats_by_year(
 
     tracks = (
         await session.execute(
-            select(DbTrack.id, DbTrack.set_id)
-            .join(DbSet, DbTrack.set_id == DbSet.id, isouter=True)
-            .where(DbTrack.set_id.is_not(None))
+            select(DbTrack.id, DbTrack.set_id).join(DbSet, DbTrack.set_id == DbSet.id)
         )
     ).all()
     year_to_track_count: Counter[int] = Counter()
