@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.3.0...v1.4.0) (2026-03-23)
+
+
+### Features
+
+* migration + schema + both routers (evaluations and webhook) ([72f63d9](https://github.com/kaianolevine/deejay-marvel-api/commit/72f63d971633e5e2dd67a09a3d619891e86e4be4))
+
 # [1.3.0](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.2.1...v1.3.0) (2026-03-23)
 
 
