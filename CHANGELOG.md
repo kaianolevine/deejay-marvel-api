@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/kaianolevine/deejay-marvel-api/compare/v1.0.0...v1.1.0) (2026-03-23)
+
+
+### Features
+
+* add live play history ingest and recent plays endpoint ([3879193](https://github.com/kaianolevine/deejay-marvel-api/commit/3879193b086327b5b657d1601d08efb6f04cd697))
+
 # 1.0.0 (2026-03-22)
 
 
