@@ -57,6 +57,7 @@ async def list_evaluations(
             finding=row.finding or "",
             suggestion=row.suggestion,
             standards_version=row.standards_version,
+            source=row.source,
             evaluated_at=row.evaluated_at,
         )
         for row in rows
@@ -128,6 +129,7 @@ async def create_evaluation(
         finding=payload.finding,
         suggestion=payload.suggestion,
         standards_version=payload.standards_version,
+        source=payload.source,
     )
     session.add(row)
     await session.flush()
@@ -143,6 +145,7 @@ async def create_evaluation(
         finding=row.finding or "",
         suggestion=row.suggestion,
         standards_version=row.standards_version,
+        source=row.source,
         evaluated_at=row.evaluated_at,
     )
     return success_envelope(data, count=1, version=settings.API_VERSION)

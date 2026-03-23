@@ -150,6 +150,7 @@ class PipelineEvaluationCreate(BaseModel):
     finding: str
     suggestion: str | None = None
     standards_version: str = "6.0"
+    source: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -163,6 +164,7 @@ class PipelineEvaluationItem(BaseModel):
     finding: str
     suggestion: str | None
     standards_version: str | None
+    source: str | None = None
     evaluated_at: dt.datetime
 
 

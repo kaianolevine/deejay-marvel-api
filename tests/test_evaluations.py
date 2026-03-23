@@ -26,6 +26,7 @@ async def test_evaluations_endpoints(client) -> None:
                 "Ensure the ingest step is called and fails fast on unrecoverable errors."
             ),
             "standards_version": "6.0",
+            "source": "flow_inline",
         },
     )
     assert post_resp.status_code == 200
@@ -37,6 +38,7 @@ async def test_evaluations_endpoints(client) -> None:
     assert created["finding"]
     assert created["suggestion"]
     assert created["standards_version"] == "6.0"
+    assert created["source"] == "flow_inline"
     assert created["evaluated_at"]
 
     list_resp2 = await client.get(
@@ -71,3 +73,18 @@ async def test_evaluations_endpoints(client) -> None:
     assert bad.status_code == 422
     bad_json = bad.json()
     assert bad_json["error"]["code"] == "validation_error"
+
+
+async def test_evaluation_source_is_none_when_omitted(client) -> None:
+    resp = await client.post(
+        "/v1/evaluations",
+        json={
+            "repo": "deejay-sets-api",
+            "dimension": "pipeline_consistency",
+            "severity": "INFO",
+            "finding": "Pipeline completed normally.",
+        },
+    )
+    assert resp.status_code == 200
+    created = resp.json()["data"]
+    assert created["source"] is None

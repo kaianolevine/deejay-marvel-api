@@ -15,6 +15,7 @@ async def test_prefect_webhook_crashed(client) -> None:
     data = resp.json()["data"]
     assert data["severity"] == "ERROR"
     assert "Crashed" in data["finding"]
+    assert data["source"] == "prefect_webhook"
 
 
 async def test_prefect_webhook_failed(client) -> None:
@@ -30,6 +31,7 @@ async def test_prefect_webhook_failed(client) -> None:
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["severity"] == "WARN"
+    assert data["source"] == "prefect_webhook"
 
 
 async def test_prefect_webhook_completed(client) -> None:
@@ -45,6 +47,7 @@ async def test_prefect_webhook_completed(client) -> None:
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["severity"] == "INFO"
+    assert data["source"] == "prefect_webhook"
 
 
 async def test_prefect_webhook_unknown_payload(client) -> None:
@@ -59,6 +62,7 @@ async def test_prefect_webhook_unknown_payload(client) -> None:
         },
     )
     assert resp.status_code == 200
+    assert resp.json()["data"]["source"] == "prefect_webhook"
 
 
 async def test_prefect_webhook_missing_fields(client) -> None:
@@ -66,4 +70,5 @@ async def test_prefect_webhook_missing_fields(client) -> None:
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert "unknown" in data["finding"]
+    assert data["source"] == "prefect_webhook"
 
