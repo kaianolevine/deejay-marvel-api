@@ -81,7 +81,7 @@ class TrackDetail(TrackListItem):
 
 
 ConfidenceLevel = Literal["low", "medium", "high"]
-CatalogSource = Literal["play_history", "library", "vdj_history", "manual"]
+CatalogSource = Literal["play_history", "live_history", "library", "vdj_history", "manual"]
 
 
 class CatalogListItem(BaseModel):
@@ -247,6 +247,40 @@ class IngestResponseData(BaseModel):
     catalog_new: int
     catalog_updated: int
     catalog_unchanged: int
+
+
+class LivePlay(BaseModel):
+    played_at: dt.datetime
+    title: str
+    artist: str
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class LivePlaysIngest(BaseModel):
+    plays: list[LivePlay]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class LivePlayRecord(BaseModel):
+    played_at: dt.datetime
+    title: str
+    artist: str
+    set_id: uuid.UUID | None = None
+    genre: str | None = None
+    bpm: float | None = None
+    release_year: int | None = None
+    label: str | None = None
+    remix: str | None = None
+    needs_review: bool
+    source: str
+
+
+class LivePlaysResponseData(BaseModel):
+    inserted: int
+    merged: int
+    flagged_for_review: int
 
 
 def api_error(status_code: int, code: str, message: str) -> HTTPException:

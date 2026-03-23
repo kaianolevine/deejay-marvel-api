@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 
 from sqlalchemy import (
@@ -57,8 +58,8 @@ class Track(Base):
     )
     owner_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
 
-    set_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("sets.id", ondelete="CASCADE"), nullable=False, index=True
+    set_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("sets.id", ondelete="SET NULL"), nullable=True, index=True
     )
     catalog_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("track_catalog.id", ondelete="SET NULL"), nullable=True, index=True
@@ -66,6 +67,9 @@ class Track(Base):
 
     play_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     play_time: Mapped[Time | None] = mapped_column(Time, nullable=True)
+    played_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source: Mapped[str] = mapped_column(String, nullable=False, default="csv")
+    needs_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # CSV column order (subset): label, title, remix, artist, comment, genre
     label: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -85,7 +89,7 @@ class Track(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    set: Mapped[Set] = relationship(back_populates="tracks", lazy="selectin")
+    set: Mapped[Set | None] = relationship(back_populates="tracks", lazy="selectin")
     catalog: Mapped[TrackCatalog | None] = relationship(lazy="selectin")
 
 

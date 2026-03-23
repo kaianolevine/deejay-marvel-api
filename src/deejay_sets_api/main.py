@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from .config import get_settings
-from .routers import catalog, evaluations, flags, ingest, sets, stats, tracks
+from .routers import catalog, evaluations, flags, ingest, live_plays, sets, stats, tracks
 from .schemas import ErrorDetail, ErrorEnvelope
 
 
@@ -86,6 +86,7 @@ def _build_app() -> FastAPI:
     app.include_router(flags.router, prefix="/v1", tags=["flags"])
     app.include_router(stats.router, prefix="/v1", tags=["stats"])
     app.include_router(ingest.router, prefix="/v1", tags=["ingest"])
+    app.include_router(live_plays.router, prefix="/v1", tags=["live-plays"])
 
     return app
 
