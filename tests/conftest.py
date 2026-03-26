@@ -13,6 +13,14 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 # Ensure Settings() can be constructed during app import.
 os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
 
+# Contact form — dummy values so Settings validates cleanly in tests.
+# Individual tests mock the actual HTTP calls to Turnstile and Brevo.
+os.environ.setdefault("BREVO_API_KEY", "test-brevo-key")
+os.environ.setdefault("CONTACT_TO_EMAIL", "to@example.com")
+os.environ.setdefault("CONTACT_FROM_EMAIL", "from@example.com")
+os.environ.setdefault("TURNSTILE_SECRET_KEY", "test-turnstile-secret")
+os.environ.setdefault("CONTACT_ALLOWED_ORIGINS", '["https://kaianolevine.com"]')
+
 from deejay_sets_api.database import get_db_session  # noqa: E402
 from deejay_sets_api.main import app  # noqa: E402
 from deejay_sets_api.models import Base  # noqa: E402

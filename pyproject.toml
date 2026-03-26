@@ -1,7 +1,7 @@
 [project]
 name = "deejay-sets-api"
-version = "1.5.1"
-description = "FastAPI service for sets, tracks, catalog reconciliation, and pipeline evaluations."
+version = "1.5.0"
+description = "FastAPI service for sets, tracks, catalog reconciliation, pipeline evaluations, and contact form handling."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.110,<1.0",
@@ -10,6 +10,7 @@ dependencies = [
   "asyncpg>=0.29,<1.0",
   "pydantic>=2.6,<3.0",
   "pydantic-settings>=2.2,<3.0",
+  "httpx>=0.27,<1.0",
   "sentry-sdk[fastapi]>=2.0,<3.0",
   "kaiano @ git+https://github.com/kaianolevine/kaiano-common-utils.git@main",
 ]

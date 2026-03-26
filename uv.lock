@@ -514,11 +514,12 @@ wheels = [
 
 [[package]]
 name = "deejay-sets-api"
-version = "1.4.0"
+version = "1.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "asyncpg" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "kaiano" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -543,6 +544,7 @@ requires-dist = [
     { name = "aiosqlite", marker = "extra == 'dev'", specifier = ">=0.20,<1.0" },
     { name = "asyncpg", specifier = ">=0.29,<1.0" },
     { name = "fastapi", specifier = ">=0.110,<1.0" },
+    { name = "httpx", specifier = ">=0.27,<1.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27,<1.0" },
     { name = "kaiano", git = "https://github.com/kaianolevine/kaiano-common-utils.git?rev=main" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.6,<4.0" },

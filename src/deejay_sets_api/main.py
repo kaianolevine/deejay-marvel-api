@@ -12,6 +12,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from .config import get_settings
 from .routers import (
     catalog,
+    contact,
     evaluations,
     flags,
     ingest,
@@ -98,6 +99,7 @@ def _build_app() -> FastAPI:
     app.include_router(ingest.router, prefix="/v1", tags=["ingest"])
     app.include_router(live_plays.router, prefix="/v1", tags=["live-plays"])
     app.include_router(webhook.router, prefix="/v1", tags=["webhook"])
+    app.include_router(contact.router, prefix="/v1", tags=["contact"])
 
     return app
 

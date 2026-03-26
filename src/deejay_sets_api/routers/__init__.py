@@ -8,4 +8,5 @@ __all__ = [
     "ingest",
     "live_plays",
     "webhook",
+    "contact",
 ]
