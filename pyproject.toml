@@ -12,6 +12,7 @@ dependencies = [
   "pydantic-settings>=2.2,<3.0",
   "httpx>=0.27,<1.0",
   "sentry-sdk[fastapi]>=2.0,<3.0",
+  "python-multipart>=0.0.9,<1.0",
   "kaiano @ git+https://github.com/kaianolevine/kaiano-common-utils.git@main",
 ]
 

@@ -207,8 +207,8 @@ async def submit_contact(request: Request) -> Response:
 
     # --- Origin allow-list ---
     origin = request.headers.get("origin", "").strip()
-    allowed = settings.CONTACT_ALLOWED_ORIGINS
-    if allowed and origin not in allowed:
+    allowed = settings.CORS_ORIGINS
+    if allowed and "*" not in allowed and origin not in allowed:
         return _error_response(403, "forbidden", "Origin not permitted")
 
     # --- Parse body ---

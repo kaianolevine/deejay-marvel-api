@@ -19,9 +19,6 @@ class Settings(BaseSettings):
     CONTACT_TO_EMAIL: str | None = None
     CONTACT_FROM_EMAIL: str | None = None
     TURNSTILE_SECRET_KEY: str | None = None
-    # Restrict POST /v1/contact to these origins only.
-    # Empty list = no restriction (not recommended for production).
-    CONTACT_ALLOWED_ORIGINS: list[str] = []
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

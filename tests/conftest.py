@@ -19,7 +19,7 @@ os.environ.setdefault("BREVO_API_KEY", "test-brevo-key")
 os.environ.setdefault("CONTACT_TO_EMAIL", "to@example.com")
 os.environ.setdefault("CONTACT_FROM_EMAIL", "from@example.com")
 os.environ.setdefault("TURNSTILE_SECRET_KEY", "test-turnstile-secret")
-os.environ.setdefault("CONTACT_ALLOWED_ORIGINS", '["https://kaianolevine.com"]')
+os.environ.setdefault("CORS_ORIGINS", '["https://kaianolevine.com"]')
 
 from deejay_sets_api.database import get_db_session  # noqa: E402
 from deejay_sets_api.main import app  # noqa: E402
