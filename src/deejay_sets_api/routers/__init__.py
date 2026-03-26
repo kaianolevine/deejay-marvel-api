@@ -9,4 +9,5 @@ __all__ = [
     "live_plays",
     "webhook",
     "contact",
+    "resume",
 ]
