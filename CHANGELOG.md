@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/kaianolevine/api-kaianolevine-com/compare/v1.7.0...v1.8.0) (2026-03-27)
+
+
+### Features
+
+* adding clerk functionality ([3ad8a68](https://github.com/kaianolevine/api-kaianolevine-com/commit/3ad8a68442577ef9f7d44164377b3c25ff191b5c))
+
 # [1.7.0](https://github.com/kaianolevine/api-kaianolevine-com/compare/v1.6.1...v1.7.0) (2026-03-26)
 
 
