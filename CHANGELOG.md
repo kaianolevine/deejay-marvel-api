@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/kaianolevine/api-kaianolevine-com/compare/v1.8.0...v1.9.0) (2026-03-27)
+
+
+### Features
+
+* pre commit cleanup ([1e84439](https://github.com/kaianolevine/api-kaianolevine-com/commit/1e844394f1b70a82823ddeebac086b82187d8dbb))
+
 # [1.8.0](https://github.com/kaianolevine/api-kaianolevine-com/compare/v1.7.0...v1.8.0) (2026-03-27)
 
 
