@@ -6,12 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import AsyncClient
 
-from deejay_sets_api.config import get_settings
+from kaianolevine_api.config import get_settings
 
 
 @pytest.fixture(autouse=True)
 def clear_resume_token_cache() -> Iterator[None]:
-    from deejay_sets_api.routers import resume as resume_mod
+    from kaianolevine_api.routers import resume as resume_mod
 
     resume_mod._token_cache["token"] = None
     resume_mod._token_cache["expires_at"] = 0.0
@@ -133,11 +133,11 @@ async def test_resume_200_headers_and_streaming_body(
     factory = _httpx_client_factory_ok()
     with (
         patch(
-            "deejay_sets_api.routers.resume.get_access_token",
+            "kaianolevine_api.routers.resume.get_access_token",
             new_callable=AsyncMock,
             return_value="test-token",
         ),
-        patch("deejay_sets_api.routers.resume.httpx.AsyncClient", side_effect=factory),
+        patch("kaianolevine_api.routers.resume.httpx.AsyncClient", side_effect=factory),
     ):
         resp = await client.get("/v1/resume")
 
@@ -167,11 +167,11 @@ async def test_resume_502_when_drive_metadata_fails(
     factory = _httpx_client_factory_meta_fail()
     with (
         patch(
-            "deejay_sets_api.routers.resume.get_access_token",
+            "kaianolevine_api.routers.resume.get_access_token",
             new_callable=AsyncMock,
             return_value="test-token",
         ),
-        patch("deejay_sets_api.routers.resume.httpx.AsyncClient", side_effect=factory),
+        patch("kaianolevine_api.routers.resume.httpx.AsyncClient", side_effect=factory),
     ):
         resp = await client.get("/v1/resume")
 
@@ -192,11 +192,11 @@ async def test_resume_502_when_drive_download_fails(
     factory = _httpx_client_factory_download_fail()
     with (
         patch(
-            "deejay_sets_api.routers.resume.get_access_token",
+            "kaianolevine_api.routers.resume.get_access_token",
             new_callable=AsyncMock,
             return_value="test-token",
         ),
-        patch("deejay_sets_api.routers.resume.httpx.AsyncClient", side_effect=factory),
+        patch("kaianolevine_api.routers.resume.httpx.AsyncClient", side_effect=factory),
     ):
         resp = await client.get("/v1/resume")
 

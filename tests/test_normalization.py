@@ -1,4 +1,4 @@
-from deejay_sets_api.services.normalization import normalize_for_matching
+from kaianolevine_api.services.normalization import normalize_for_matching
 
 
 def test_normalize_for_matching_basic():

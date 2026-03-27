@@ -53,7 +53,7 @@ async def _brevo_fail(**kwargs):  # noqa: ANN001
 async def test_contact_blocked_origin(client: AsyncClient) -> None:
     """Requests from disallowed origins are rejected with 403."""
     with patch(
-        "deejay_sets_api.routers.contact._verify_turnstile", new_callable=AsyncMock
+        "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
     ) as mock_ts:
         mock_ts.return_value = True
         resp = await client.post(
@@ -72,10 +72,10 @@ async def test_contact_allowed_origin(client: AsyncClient) -> None:
     """Requests from an allowed origin proceed past the origin check."""
     with (
         patch(
-            "deejay_sets_api.routers.contact._verify_turnstile", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
         ) as mock_ts,
         patch(
-            "deejay_sets_api.routers.contact._send_brevo_email", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
         ) as mock_brevo,
     ):
         mock_ts.return_value = True
@@ -100,7 +100,7 @@ async def test_contact_honeypot_silent_ok(client: AsyncClient) -> None:
     """Filled honeypot field returns 200 silently without sending email."""
     body = {**VALID_JSON_BODY, "website": "http://spam.example.com"}
     with patch(
-        "deejay_sets_api.routers.contact._send_brevo_email", new_callable=AsyncMock
+        "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
     ) as mock_brevo:
         resp = await client.post(
             "/v1/contact",
@@ -138,7 +138,7 @@ async def test_contact_missing_required_field(client: AsyncClient, missing_field
 @pytest.mark.asyncio
 async def test_contact_turnstile_failure(client: AsyncClient) -> None:
     with patch(
-        "deejay_sets_api.routers.contact._verify_turnstile", new_callable=AsyncMock
+        "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
     ) as mock_ts:
         mock_ts.return_value = False
         resp = await client.post(
@@ -160,10 +160,10 @@ async def test_contact_turnstile_failure(client: AsyncClient) -> None:
 async def test_contact_brevo_failure(client: AsyncClient) -> None:
     with (
         patch(
-            "deejay_sets_api.routers.contact._verify_turnstile", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
         ) as mock_ts,
         patch(
-            "deejay_sets_api.routers.contact._send_brevo_email", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
         ) as mock_brevo,
     ):
         mock_ts.return_value = True
@@ -188,10 +188,10 @@ async def test_contact_form_data(client: AsyncClient) -> None:
     """Endpoint accepts application/x-www-form-urlencoded in addition to JSON."""
     with (
         patch(
-            "deejay_sets_api.routers.contact._verify_turnstile", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
         ) as mock_ts,
         patch(
-            "deejay_sets_api.routers.contact._send_brevo_email", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
         ) as mock_brevo,
     ):
         mock_ts.return_value = True
@@ -216,10 +216,10 @@ async def test_contact_redirect_true(client: AsyncClient) -> None:
     body = {**VALID_JSON_BODY, "redirect": True}
     with (
         patch(
-            "deejay_sets_api.routers.contact._verify_turnstile", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
         ) as mock_ts,
         patch(
-            "deejay_sets_api.routers.contact._send_brevo_email", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
         ) as mock_brevo,
     ):
         mock_ts.return_value = True
@@ -241,10 +241,10 @@ async def test_contact_redirect_false(client: AsyncClient) -> None:
     body = {**VALID_JSON_BODY, "redirect": False}
     with (
         patch(
-            "deejay_sets_api.routers.contact._verify_turnstile", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._verify_turnstile", new_callable=AsyncMock
         ) as mock_ts,
         patch(
-            "deejay_sets_api.routers.contact._send_brevo_email", new_callable=AsyncMock
+            "kaianolevine_api.routers.contact._send_brevo_email", new_callable=AsyncMock
         ) as mock_brevo,
     ):
         mock_ts.return_value = True

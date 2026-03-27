@@ -18,7 +18,7 @@ async def test_live_plays_simple_insert_skip_and_recent(client, monkeypatch) -> 
             )
 
     monkeypatch.setattr(
-        "deejay_sets_api.routers.live_plays.pg_insert",
+        "kaianolevine_api.routers.live_plays.pg_insert",
         lambda table: _SQLiteInsertAdapter(table),
     )
 

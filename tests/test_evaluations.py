@@ -17,7 +17,7 @@ async def test_evaluations_endpoints(client) -> None:
     post_resp = await client.post(
         "/v1/evaluations",
         json={
-            "repo": "deejay-sets-api",
+            "repo": "api-kaianolevine-com",
             "dimension": "pipeline_consistency",
             "severity": "ERROR",
             "run_id": "run-123",
@@ -32,7 +32,7 @@ async def test_evaluations_endpoints(client) -> None:
     )
     assert post_resp.status_code == 200
     created = post_resp.json()["data"]
-    assert created["repo"] == "deejay-sets-api"
+    assert created["repo"] == "api-kaianolevine-com"
     assert created["dimension"] == "pipeline_consistency"
     assert created["severity"] == "ERROR"
     assert created["run_id"] == "run-123"
@@ -46,7 +46,7 @@ async def test_evaluations_endpoints(client) -> None:
     list_resp2 = await client.get(
         "/v1/evaluations",
         params={
-            "repo": "deejay-sets-api",
+            "repo": "api-kaianolevine-com",
             "dimension": "pipeline_consistency",
             "severity": "ERROR",
             "limit": 10,
@@ -70,7 +70,11 @@ async def test_evaluations_endpoints(client) -> None:
     # Validation error envelope
     bad = await client.post(
         "/v1/evaluations",
-        json={"repo": "deejay-sets-api", "dimension": "pipeline_consistency", "severity": "ERROR"},
+        json={
+            "repo": "api-kaianolevine-com",
+            "dimension": "pipeline_consistency",
+            "severity": "ERROR",
+        },
     )
     assert bad.status_code == 422
     bad_json = bad.json()
@@ -81,7 +85,7 @@ async def test_evaluation_source_is_none_when_omitted(client) -> None:
     resp = await client.post(
         "/v1/evaluations",
         json={
-            "repo": "deejay-sets-api",
+            "repo": "api-kaianolevine-com",
             "dimension": "pipeline_consistency",
             "severity": "INFO",
             "finding": "Pipeline completed normally.",
@@ -96,7 +100,7 @@ async def test_evaluation_flow_name_is_none_when_omitted(client) -> None:
     resp = await client.post(
         "/v1/evaluations",
         json={
-            "repo": "deejay-sets-api",
+            "repo": "api-kaianolevine-com",
             "dimension": "pipeline_consistency",
             "severity": "INFO",
             "finding": "Pipeline completed normally.",

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from deejay_sets_api.models import FeatureFlag as DbFeatureFlag
-from deejay_sets_api.services.flags import is_enabled
+from kaianolevine_api.models import FeatureFlag as DbFeatureFlag
+from kaianolevine_api.services.flags import is_enabled
 
 
 async def test_flags_endpoints_and_service_contract(client, async_engine) -> None:

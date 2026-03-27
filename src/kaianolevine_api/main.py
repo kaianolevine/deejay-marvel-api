@@ -29,7 +29,7 @@ from .schemas import ErrorDetail, ErrorEnvelope
 def _build_app() -> FastAPI:
     settings = get_settings()
 
-    app = FastAPI(title="deejay-sets-api", version=settings.API_VERSION)
+    app = FastAPI(title="kaianolevine-api", version=settings.API_VERSION)
 
     app.add_middleware(
         CORSMiddleware,

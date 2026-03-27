@@ -1,4 +1,4 @@
-# deejay-sets-api
+# kaianolevine-api
 
 FastAPI service providing:
 * CRUD-style read endpoints for `sets` and `tracks`
@@ -31,7 +31,7 @@ cp .env.example .env
 
 ### Run the server
 ```bash
-uv run uvicorn src.deejay_sets_api.main:app --reload
+uv run uvicorn src.kaianolevine_api.main:app --reload
 ```
 
 API docs available at http://localhost:8000/docs
@@ -42,7 +42,7 @@ API docs available at http://localhost:8000/docs
 uv run pytest
 
 # With coverage detail
-uv run pytest --cov=deejay_sets_api --cov-report=term-missing
+uv run pytest --cov=kaianolevine_api --cov-report=term-missing
 ```
 
 ### Lint, format, type check

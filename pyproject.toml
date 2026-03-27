@@ -1,7 +1,7 @@
 [project]
-name = "deejay-sets-api"
+name = "kaianolevine-api"
 version = "1.10.0"
-description = "FastAPI service for sets, tracks, catalog reconciliation, pipeline evaluations, and contact form handling."
+description = "FastAPI service powering api.kaianolevine.com — sets, tracks, catalog, stats, evaluations, contact, and resume."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.110,<1.0",

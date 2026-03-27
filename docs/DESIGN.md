@@ -2,7 +2,7 @@
 
 This repository was generated from the written requirements included in the prompt.
 
-The original governing document was provided as `deejay_sets_api_design_v2.docx`, but the current environment can't directly extract `.docx` contents. If you want the exact wording from that file mirrored here, paste the text or provide a PDF export.
+The original governing document was provided as `kaianolevine_api_design_v2.docx`, but the current environment can't directly extract `.docx` contents. If you want the exact wording from that file mirrored here, paste the text or provide a PDF export.
 
 ## Section 5: API Endpoints
 
@@ -51,6 +51,6 @@ Errors return:
 ## Reconciliation + Normalization
 
 Normalization and reconciliation rules are implemented in:
-* `src/deejay_sets_api/services/normalization.py`
-* `src/deejay_sets_api/services/reconciliation.py`
+* `src/kaianolevine_api/services/normalization.py`
+* `src/kaianolevine_api/services/reconciliation.py`
 

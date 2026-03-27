@@ -5,12 +5,12 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from deejay_sets_api.models import Set as DbSet
-from deejay_sets_api.models import Track as DbTrack
-from deejay_sets_api.models import TrackCatalog as DbCatalog
-from deejay_sets_api.schemas import IngestTrack
-from deejay_sets_api.services.normalization import normalize_for_matching
-from deejay_sets_api.services.reconciliation import reconcile_set_tracks
+from kaianolevine_api.models import Set as DbSet
+from kaianolevine_api.models import Track as DbTrack
+from kaianolevine_api.models import TrackCatalog as DbCatalog
+from kaianolevine_api.schemas import IngestTrack
+from kaianolevine_api.services.normalization import normalize_for_matching
+from kaianolevine_api.services.reconciliation import reconcile_set_tracks
 
 
 async def test_reconciliation_confidence_escalation(async_engine) -> None:

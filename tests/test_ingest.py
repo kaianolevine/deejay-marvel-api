@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from deejay_sets_api.models import FeatureFlag as DbFeatureFlag
+from kaianolevine_api.models import FeatureFlag as DbFeatureFlag
 
 
 def _payload(set_date: str, venue: str, source_file: str, tracks: list[dict]) -> dict:
