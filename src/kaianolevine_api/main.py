@@ -19,6 +19,7 @@ from .routers import (
     live_plays,
     resume,
     sets,
+    spotify,
     stats,
     tracks,
     webhook,
@@ -97,6 +98,7 @@ def _build_app() -> FastAPI:
     app.include_router(evaluations.router, prefix="/v1", tags=["evaluations"])
     app.include_router(flags.router, prefix="/v1", tags=["flags"])
     app.include_router(stats.router, prefix="/v1", tags=["stats"])
+    app.include_router(spotify.router, prefix="/v1", tags=["spotify"])
     app.include_router(ingest.router, prefix="/v1", tags=["ingest"])
     app.include_router(live_plays.router, prefix="/v1", tags=["live-plays"])
     app.include_router(webhook.router, prefix="/v1", tags=["webhook"])

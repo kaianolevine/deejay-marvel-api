@@ -5,6 +5,7 @@ __all__ = [
     "evaluations",
     "flags",
     "stats",
+    "spotify",
     "ingest",
     "live_plays",
     "webhook",

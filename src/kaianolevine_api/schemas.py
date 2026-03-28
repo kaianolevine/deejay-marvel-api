@@ -280,6 +280,48 @@ class LivePlaysResponseData(BaseModel):
     skipped: int
 
 
+class SpotifyPlaylistItem(BaseModel):
+    id: str
+    name: str
+    url: str
+    uri: str
+    type: str
+    public: bool
+    collaborative: bool
+    snapshot_id: str | None
+    tracks_total: int
+    owner_id: str
+    owner_name: str | None
+    captured_at: dt.datetime
+
+
+class SpotifyPlaylistIngest(BaseModel):
+    id: str
+    name: str
+    url: str
+    uri: str
+    type: str = "playlist"
+    public: bool = True
+    collaborative: bool = False
+    snapshot_id: str | None = None
+    tracks_total: int = 0
+    owner_id: str
+    owner_name: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class SpotifyPlaylistsIngest(BaseModel):
+    playlists: list[SpotifyPlaylistIngest]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class SpotifyPlaylistsIngestResponse(BaseModel):
+    upserted: int
+    unchanged: int
+
+
 class PrefectWebhookPayload(BaseModel):
     flow_run_id: str | None = None
     flow_name: str | None = None
