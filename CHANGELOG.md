@@ -1,3 +1,10 @@
+## [1.13.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.13.0...v1.13.1) (2026-03-29)
+
+
+### Bug Fixes
+
+* remove line length requirement ([aa203ee](https://github.com/mini-app-polis/api-kaianolevine-com/commit/aa203ee9f66df36d165e4edf72f97fe45cd63e4e))
+
 # [1.13.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.12.0...v1.13.0) (2026-03-28)
 
 
