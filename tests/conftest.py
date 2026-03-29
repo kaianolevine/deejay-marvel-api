@@ -66,7 +66,9 @@ async def reset_db(async_engine) -> AsyncIterator[None]:
 
 @pytest.fixture
 async def client(async_engine) -> AsyncIterator[httpx.AsyncClient]:
-    sessionmaker = async_sessionmaker(async_engine, expire_on_commit=False, autoflush=False)
+    sessionmaker = async_sessionmaker(
+        async_engine, expire_on_commit=False, autoflush=False
+    )
 
     async def override_get_db_session() -> AsyncIterator[AsyncSession]:
         async with sessionmaker() as session:

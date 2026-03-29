@@ -338,7 +338,9 @@ def api_error(status_code: int, code: str, message: str) -> HTTPException:
     Helper for raising errors with the standard `{ error: { code, message } }` envelope.
     """
 
-    return HTTPException(status_code=status_code, detail={"code": code, "message": message})
+    return HTTPException(
+        status_code=status_code, detail={"code": code, "message": message}
+    )
 
 
 def success_envelope(data: T, *, count: int, version: str) -> Envelope[T]:

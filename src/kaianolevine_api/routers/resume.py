@@ -67,7 +67,10 @@ async def _fetch_oauth_access_token(settings: Settings) -> None:
     if resp.status_code != 200:
         raise HTTPException(
             status_code=502,
-            detail={"code": "upstream_error", "message": "Google OAuth token exchange failed"},
+            detail={
+                "code": "upstream_error",
+                "message": "Google OAuth token exchange failed",
+            },
         )
     data = resp.json()
     access_token = data["access_token"]
@@ -97,7 +100,10 @@ async def get_resume(settings: Settings = Depends(get_settings)) -> StreamingRes
     if not file_id:
         raise HTTPException(
             status_code=501,
-            detail={"code": "not_configured", "message": "Resume file is not configured"},
+            detail={
+                "code": "not_configured",
+                "message": "Resume file is not configured",
+            },
         )
 
     bearer = await get_access_token(settings)
@@ -107,7 +113,10 @@ async def get_resume(settings: Settings = Depends(get_settings)) -> StreamingRes
     async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
         meta_resp = await client.get(
             meta_url,
-            params={"supportsAllDrives": "true", "fields": "id,name,size,mimeType,webViewLink"},
+            params={
+                "supportsAllDrives": "true",
+                "fields": "id,name,size,mimeType,webViewLink",
+            },
             headers=headers,
         )
 

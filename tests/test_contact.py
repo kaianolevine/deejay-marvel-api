@@ -118,8 +118,12 @@ async def test_contact_honeypot_silent_ok(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("missing_field", ["type", "originSite", "email", "turnstileToken"])
-async def test_contact_missing_required_field(client: AsyncClient, missing_field: str) -> None:
+@pytest.mark.parametrize(
+    "missing_field", ["type", "originSite", "email", "turnstileToken"]
+)
+async def test_contact_missing_required_field(
+    client: AsyncClient, missing_field: str
+) -> None:
     body = {k: v for k, v in VALID_JSON_BODY.items() if k != missing_field}
     resp = await client.post(
         "/v1/contact",

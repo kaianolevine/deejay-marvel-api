@@ -8,7 +8,9 @@ def test_normalize_for_matching_basic():
 
 
 def test_normalize_for_matching_feat_and_suffixes():
-    title, artist = normalize_for_matching("My Boo (Radio Edit)", "Artist feat. Someone")
+    title, artist = normalize_for_matching(
+        "My Boo (Radio Edit)", "Artist feat. Someone"
+    )
     assert title == "my boo"
     assert artist == "artist"
 

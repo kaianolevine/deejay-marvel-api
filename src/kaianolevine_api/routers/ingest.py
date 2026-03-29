@@ -36,7 +36,10 @@ async def ingest_set(
         log.warning("%s ingest disabled by feature flag", LOG_WARNING)
         raise HTTPException(
             status_code=503,
-            detail={"code": "feature_disabled", "message": "Ingest is currently disabled"},
+            detail={
+                "code": "feature_disabled",
+                "message": "Ingest is currently disabled",
+            },
         )
 
     existing_set = None
@@ -64,7 +67,11 @@ async def ingest_set(
         is_reingestion = False
 
     if is_reingestion:
-        log.info("%s re-ingestion detected for source_file=%s", LOG_WARNING, payload.source_file)
+        log.info(
+            "%s re-ingestion detected for source_file=%s",
+            LOG_WARNING,
+            payload.source_file,
+        )
 
     result = await reconcile_set_tracks(
         session=session,

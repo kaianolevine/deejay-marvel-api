@@ -36,7 +36,10 @@ async def ingest_live_plays(
     if not await is_enabled("flags.deejay_api.live_plays_enabled", session):
         raise HTTPException(
             status_code=503,
-            detail={"code": "feature_disabled", "message": "Live plays are currently disabled"},
+            detail={
+                "code": "feature_disabled",
+                "message": "Live plays are currently disabled",
+            },
         )
 
     inserted = 0
@@ -51,7 +54,9 @@ async def ingest_live_plays(
                 title=play.title,
                 artist=play.artist,
             )
-            .on_conflict_do_nothing(constraint="uq_live_plays_owner_title_artist_played_at")
+            .on_conflict_do_nothing(
+                constraint="uq_live_plays_owner_title_artist_played_at"
+            )
         )
         result = await session.execute(stmt)
         if result.rowcount == 1:
@@ -79,7 +84,10 @@ async def list_recent_live_plays(
     if not await is_enabled("flags.deejay_api.live_plays_enabled", session):
         raise HTTPException(
             status_code=503,
-            detail={"code": "feature_disabled", "message": "Live plays are currently disabled"},
+            detail={
+                "code": "feature_disabled",
+                "message": "Live plays are currently disabled",
+            },
         )
 
     stmt = (

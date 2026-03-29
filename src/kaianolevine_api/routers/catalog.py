@@ -150,7 +150,9 @@ async def patch_catalog(
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[CatalogDetail]:
-    catalog_stmt = select(DbCatalog).where(DbCatalog.id == id, DbCatalog.owner_id == owner_id)
+    catalog_stmt = select(DbCatalog).where(
+        DbCatalog.id == id, DbCatalog.owner_id == owner_id
+    )
     catalog = (await session.execute(catalog_stmt)).scalar_one_or_none()
     if catalog is None:
         raise api_error(404, "not_found", "Catalog entry not found")

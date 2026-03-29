@@ -86,7 +86,9 @@ async def reconcile_set_tracks(
     is_reingestion: bool = False,
 ) -> ReconciliationResult:
     ingest_tracks = list(tracks)
-    log.info("%s reconciling %s tracks for set_id=%s", LOG_START, len(ingest_tracks), set_id)
+    log.info(
+        "%s reconciling %s tracks for set_id=%s", LOG_START, len(ingest_tracks), set_id
+    )
 
     catalog_new = 0
     catalog_updated = 0
@@ -100,7 +102,9 @@ async def reconcile_set_tracks(
     work_items: list[tuple[IngestTrack, str, str]] = []
 
     for ingest_track in ingest_tracks:
-        norm_title, norm_artist = normalize_for_matching(ingest_track.title, ingest_track.artist)
+        norm_title, norm_artist = normalize_for_matching(
+            ingest_track.title, ingest_track.artist
+        )
         pair = (norm_title, norm_artist)
         if pair not in normalized_set:
             normalized_set.add(pair)
@@ -119,20 +123,24 @@ async def reconcile_set_tracks(
         result = await session.execute(
             select(TrackCatalog).where(
                 TrackCatalog.owner_id == owner_id,
-                tuple_(TrackCatalog.title_normalized, TrackCatalog.artist_normalized).in_(
-                    normalized_pairs
-                ),
+                tuple_(
+                    TrackCatalog.title_normalized, TrackCatalog.artist_normalized
+                ).in_(normalized_pairs),
             )
         )
         catalogs = result.scalars().all()
-        catalog_by_pair = {(c.title_normalized, c.artist_normalized): c for c in catalogs}
+        catalog_by_pair = {
+            (c.title_normalized, c.artist_normalized): c for c in catalogs
+        }
 
     for ingest_track, norm_title, norm_artist in work_items:
         pair = (norm_title, norm_artist)
 
         # Persist missing play_order as 0 (DB constraint). For data_quality,
         # we still use ingest_track.play_order.
-        play_order_db = ingest_track.play_order if ingest_track.play_order is not None else 0
+        play_order_db = (
+            ingest_track.play_order if ingest_track.play_order is not None else 0
+        )
         if is_reingestion and play_order_db in existing_play_orders:
             catalog_unchanged += 1
             continue

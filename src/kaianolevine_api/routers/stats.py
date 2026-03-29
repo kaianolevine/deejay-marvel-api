@@ -35,8 +35,12 @@ async def stats_overview(
 ) -> Envelope[StatsOverview]:
     settings = get_settings()
 
-    total_sets = (await session.execute(select(func.count()).select_from(DbSet))).scalar_one()
-    total_plays = (await session.execute(select(func.count()).select_from(DbTrack))).scalar_one()
+    total_sets = (
+        await session.execute(select(func.count()).select_from(DbSet))
+    ).scalar_one()
+    total_plays = (
+        await session.execute(select(func.count()).select_from(DbTrack))
+    ).scalar_one()
 
     unique_tracks = (
         await session.execute(
@@ -131,7 +135,9 @@ async def stats_top_artists(
         )
     ).all()
 
-    data = [StatsTopArtistItem(artist=artist, play_count=count) for artist, count in rows]
+    data = [
+        StatsTopArtistItem(artist=artist, play_count=count) for artist, count in rows
+    ]
     return success_envelope(data, count=len(data), version=settings.API_VERSION)
 
 
@@ -147,14 +153,21 @@ async def stats_top_tracks(
     settings = get_settings()
 
     rows = (
-        (await session.execute(select(DbCatalog).order_by(DbCatalog.play_count.desc()).limit(10)))
+        (
+            await session.execute(
+                select(DbCatalog).order_by(DbCatalog.play_count.desc()).limit(10)
+            )
+        )
         .scalars()
         .all()
     )
 
     data = [
         StatsTopTrackItem(
-            catalog_id=row.id, title=row.title, artist=row.artist, play_count=row.play_count
+            catalog_id=row.id,
+            title=row.title,
+            artist=row.artist,
+            play_count=row.play_count,
         )
         for row in rows
     ]

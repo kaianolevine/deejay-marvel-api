@@ -63,13 +63,20 @@ async def test_spotify_playlists_get_after_ingest_ordered_by_name(client) -> Non
 
 @pytest.mark.asyncio
 async def test_spotify_playlists_post_upserts_new_rows(client) -> None:
-    r1 = await client.post("/v1/spotify/playlists", json={"playlists": [_pl("x1", "One")]})
+    r1 = await client.post(
+        "/v1/spotify/playlists", json={"playlists": [_pl("x1", "One")]}
+    )
     assert r1.status_code == 200
     assert r1.json()["data"] == {"upserted": 1, "unchanged": 0}
 
     r2 = await client.post(
         "/v1/spotify/playlists",
-        json={"playlists": [_pl("x1", "One Updated", snapshot_id="snap-2"), _pl("x2", "Two")]},
+        json={
+            "playlists": [
+                _pl("x1", "One Updated", snapshot_id="snap-2"),
+                _pl("x2", "Two"),
+            ]
+        },
     )
     assert r2.status_code == 200
     assert r2.json()["data"]["upserted"] == 2

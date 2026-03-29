@@ -37,7 +37,25 @@ async def list_evaluations(
 ) -> Envelope[list[PipelineEvaluationItem]]:
     settings = get_settings()
 
-    stmt = select(DbEval).order_by(DbEval.evaluated_at.desc())
+    latest_runs = (
+        select(
+            DbEval.repo,
+            DbEval.source,
+            func.max(DbEval.evaluated_at).label("latest_at"),
+        )
+        .group_by(DbEval.repo, DbEval.source)
+        .subquery()
+    )
+    stmt = (
+        select(DbEval)
+        .join(
+            latest_runs,
+            (DbEval.repo == latest_runs.c.repo)
+            & (DbEval.source == latest_runs.c.source)
+            & (DbEval.evaluated_at == latest_runs.c.latest_at),
+        )
+        .order_by(DbEval.evaluated_at.desc())
+    )
     if repo:
         stmt = stmt.where(DbEval.repo == repo)
     if dimension:
@@ -82,7 +100,9 @@ async def evaluations_summary(
     stmt = (
         select(
             DbEval.dimension,
-            func.sum(case((DbEval.severity == "ERROR", 1), else_=0)).label("error_count"),
+            func.sum(case((DbEval.severity == "ERROR", 1), else_=0)).label(
+                "error_count"
+            ),
             func.sum(case((DbEval.severity == "WARN", 1), else_=0)).label("warn_count"),
             func.sum(case((DbEval.severity == "INFO", 1), else_=0)).label("info_count"),
             func.max(DbEval.evaluated_at).label("most_recent"),

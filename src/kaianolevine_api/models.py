@@ -81,7 +81,9 @@ class Track(Base):
     artist: Mapped[str] = mapped_column(String, nullable=False)
     comment: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    genre: Mapped[str | None] = mapped_column(String, nullable=True)  # raw genre from CSV
+    genre: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )  # raw genre from CSV
     bpm: Mapped[float | None] = mapped_column(Float, nullable=True)
     release_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     length_secs: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -106,7 +108,9 @@ class TrackCatalog(Base):
     )
     owner_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
 
-    title: Mapped[str] = mapped_column(String, nullable=False)  # raw title from earliest known play
+    title: Mapped[str] = mapped_column(
+        String, nullable=False
+    )  # raw title from earliest known play
     artist: Mapped[str] = mapped_column(
         String, nullable=False
     )  # raw artist from earliest known play
@@ -235,9 +239,13 @@ class SpotifyPlaylist(Base):
 class LivePlay(Base):
     __tablename__ = "live_plays"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     owner_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    played_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    played_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     title: Mapped[str] = mapped_column(String, nullable=False)
     artist: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[DateTime] = mapped_column(

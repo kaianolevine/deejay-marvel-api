@@ -10,7 +10,13 @@ from ..auth import get_current_owner
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import FeatureFlag as DbFeatureFlag
-from ..schemas import Envelope, FeatureFlagItem, FeatureFlagPatch, api_error, success_envelope
+from ..schemas import (
+    Envelope,
+    FeatureFlagItem,
+    FeatureFlagPatch,
+    api_error,
+    success_envelope,
+)
 
 router = APIRouter()
 
@@ -29,7 +35,11 @@ async def list_flags(
     settings = get_settings()
 
     rows = (
-        (await session.execute(select(DbFeatureFlag).order_by(DbFeatureFlag.name.asc())))
+        (
+            await session.execute(
+                select(DbFeatureFlag).order_by(DbFeatureFlag.name.asc())
+            )
+        )
         .scalars()
         .all()
     )

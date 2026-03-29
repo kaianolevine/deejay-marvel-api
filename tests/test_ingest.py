@@ -6,7 +6,12 @@ from kaianolevine_api.models import FeatureFlag as DbFeatureFlag
 
 
 def _payload(set_date: str, venue: str, source_file: str, tracks: list[dict]) -> dict:
-    return {"set_date": set_date, "venue": venue, "source_file": source_file, "tracks": tracks}
+    return {
+        "set_date": set_date,
+        "venue": venue,
+        "source_file": source_file,
+        "tracks": tracks,
+    }
 
 
 async def test_ingest_reconciliation_confidence_escalation(client) -> None:
@@ -119,7 +124,9 @@ async def test_ingest_reconciliation_confidence_escalation(client) -> None:
 
 
 async def test_ingest_respects_feature_flag_disable(client, async_engine) -> None:
-    sessionmaker = async_sessionmaker(async_engine, expire_on_commit=False, autoflush=False)
+    sessionmaker = async_sessionmaker(
+        async_engine, expire_on_commit=False, autoflush=False
+    )
     async with sessionmaker() as session:
         session.add(
             DbFeatureFlag(
@@ -247,6 +254,8 @@ async def test_ingest_reingestion_with_new_track_adds_only_new(client) -> None:
 
     list_resp = await client.get("/v1/catalog", params={"limit": 20, "offset": 0})
     assert list_resp.status_code == 200
-    originals = [row for row in list_resp.json()["data"] if row["title"] == "Original Only"]
+    originals = [
+        row for row in list_resp.json()["data"] if row["title"] == "Original Only"
+    ]
     assert len(originals) == 1
     assert originals[0]["play_count"] == 1

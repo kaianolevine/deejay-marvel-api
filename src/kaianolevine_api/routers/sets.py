@@ -12,7 +12,13 @@ from ..config import get_settings
 from ..database import get_db_session
 from ..models import Set as DbSet
 from ..models import Track as DbTrack
-from ..schemas import Envelope, SetDetail, SetListItem, SetTrackListItem, success_envelope
+from ..schemas import (
+    Envelope,
+    SetDetail,
+    SetListItem,
+    SetTrackListItem,
+    success_envelope,
+)
 
 router = APIRouter()
 
@@ -76,7 +82,9 @@ async def list_sets(
     return success_envelope(data, count=len(data), version=settings.API_VERSION)
 
 
-def _track_to_item(track: DbTrack, *, set_venue: str, set_date: dt.date) -> SetTrackListItem:
+def _track_to_item(
+    track: DbTrack, *, set_venue: str, set_date: dt.date
+) -> SetTrackListItem:
     return SetTrackListItem(
         id=track.id,
         set_id=track.set_id,
@@ -116,7 +124,9 @@ async def get_set(
     stmt = (
         select(DbTrack)
         .where(DbTrack.set_id == id)
-        .order_by(DbTrack.play_order.asc().nulls_last(), DbTrack.play_time.asc().nulls_last())
+        .order_by(
+            DbTrack.play_order.asc().nulls_last(), DbTrack.play_time.asc().nulls_last()
+        )
     )
     tracks = (await session.execute(stmt)).scalars().all()
 
@@ -128,7 +138,8 @@ async def get_set(
         source_file=set_row.source_file,
         track_count=len(tracks),
         tracks=[
-            _track_to_item(t, set_venue=set_row.venue, set_date=set_row.set_date) for t in tracks
+            _track_to_item(t, set_venue=set_row.venue, set_date=set_row.set_date)
+            for t in tracks
         ],
     )
     return success_envelope(data, count=1, version=settings.API_VERSION)
@@ -154,9 +165,14 @@ async def get_set_tracks(
     stmt = (
         select(DbTrack)
         .where(DbTrack.set_id == id)
-        .order_by(DbTrack.play_order.asc().nulls_last(), DbTrack.play_time.asc().nulls_last())
+        .order_by(
+            DbTrack.play_order.asc().nulls_last(), DbTrack.play_time.asc().nulls_last()
+        )
     )
     tracks = (await session.execute(stmt)).scalars().all()
 
-    data = [_track_to_item(t, set_venue=set_row.venue, set_date=set_row.set_date) for t in tracks]
+    data = [
+        _track_to_item(t, set_venue=set_row.venue, set_date=set_row.set_date)
+        for t in tracks
+    ]
     return success_envelope(data, count=len(data), version=settings.API_VERSION)

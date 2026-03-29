@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sqlalchemy import text
+
 
 async def test_evaluations_endpoints(client) -> None:
     list_resp = await client.get("/v1/evaluations", params={"limit": 50, "offset": 0})
@@ -110,3 +112,63 @@ async def test_evaluation_flow_name_is_none_when_omitted(client) -> None:
     assert resp.status_code == 200
     created = resp.json()["data"]
     assert created["flow_name"] is None
+
+
+async def test_list_evaluations_only_returns_latest_run_per_repo_source(
+    client, async_engine
+) -> None:
+    older = await client.post(
+        "/v1/evaluations",
+        json={
+            "repo": "api-kaianolevine-com",
+            "dimension": "pipeline_consistency",
+            "severity": "WARN",
+            "run_id": "run-older",
+            "finding": "This finding belongs to an older run.",
+            "source": "flow_inline",
+        },
+    )
+    assert older.status_code == 200
+
+    newer = await client.post(
+        "/v1/evaluations",
+        json={
+            "repo": "api-kaianolevine-com",
+            "dimension": "pipeline_consistency",
+            "severity": "ERROR",
+            "run_id": "run-newer",
+            "finding": "This finding belongs to the latest run.",
+            "source": "flow_inline",
+        },
+    )
+    assert newer.status_code == 200
+
+    # Force deterministic ordering for SQLite tests where inserts can share a timestamp.
+    async with async_engine.begin() as conn:
+        await conn.execute(
+            text(
+                "UPDATE pipeline_evaluations SET evaluated_at = :older_at WHERE run_id = :older_run_id"
+            ),
+            {"older_at": "2024-01-01 00:00:00", "older_run_id": "run-older"},
+        )
+        await conn.execute(
+            text(
+                "UPDATE pipeline_evaluations SET evaluated_at = :newer_at WHERE run_id = :newer_run_id"
+            ),
+            {"newer_at": "2024-01-02 00:00:00", "newer_run_id": "run-newer"},
+        )
+
+    list_resp = await client.get(
+        "/v1/evaluations",
+        params={
+            "repo": "api-kaianolevine-com",
+            "limit": 50,
+            "offset": 0,
+        },
+    )
+    assert list_resp.status_code == 200
+    body = list_resp.json()
+
+    returned_run_ids = [row["run_id"] for row in body["data"]]
+    assert "run-newer" in returned_run_ids
+    assert "run-older" not in returned_run_ids

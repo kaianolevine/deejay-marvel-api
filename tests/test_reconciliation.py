@@ -15,7 +15,9 @@ from kaianolevine_api.services.reconciliation import reconcile_set_tracks
 
 async def test_reconciliation_confidence_escalation(async_engine) -> None:
     owner_id = "dev-owner"
-    sessionmaker = async_sessionmaker(async_engine, expire_on_commit=False, autoflush=False)
+    sessionmaker = async_sessionmaker(
+        async_engine, expire_on_commit=False, autoflush=False
+    )
 
     set_date = date(2026, 3, 8)
     raw_title = "My Boo"
@@ -23,7 +25,9 @@ async def test_reconciliation_confidence_escalation(async_engine) -> None:
     title_norm, artist_norm = normalize_for_matching(raw_title, raw_artist)
 
     async with sessionmaker() as session:
-        db_set = DbSet(owner_id=owner_id, set_date=set_date, venue="MADjam", source_file="test.csv")
+        db_set = DbSet(
+            owner_id=owner_id, set_date=set_date, venue="MADjam", source_file="test.csv"
+        )
         session.add(db_set)
         await session.flush()
 
@@ -80,7 +84,9 @@ async def test_reconciliation_confidence_escalation(async_engine) -> None:
         track_rows = (
             (
                 await session.execute(
-                    select(DbTrack).where(DbTrack.set_id == db_set.id).order_by(DbTrack.id.asc())
+                    select(DbTrack)
+                    .where(DbTrack.set_id == db_set.id)
+                    .order_by(DbTrack.id.asc())
                 )
             )
             .scalars()
@@ -124,7 +130,9 @@ async def test_reconciliation_confidence_escalation(async_engine) -> None:
         track_rows = (
             (
                 await session.execute(
-                    select(DbTrack).where(DbTrack.set_id == db_set.id).order_by(DbTrack.id.asc())
+                    select(DbTrack)
+                    .where(DbTrack.set_id == db_set.id)
+                    .order_by(DbTrack.id.asc())
                 )
             )
             .scalars()
@@ -136,7 +144,9 @@ async def test_reconciliation_confidence_escalation(async_engine) -> None:
 
 async def test_reconciliation_data_quality_enrichment_fields(async_engine) -> None:
     owner_id = "dev-owner"
-    sessionmaker = async_sessionmaker(async_engine, expire_on_commit=False, autoflush=False)
+    sessionmaker = async_sessionmaker(
+        async_engine, expire_on_commit=False, autoflush=False
+    )
 
     set_date = date(2026, 3, 8)
     raw_title = "My Boo"
@@ -214,4 +224,8 @@ async def test_reconciliation_data_quality_enrichment_fields(async_engine) -> No
             .all()
         )
 
-        assert [t.data_quality for t in track_rows] == ["minimal", "partial", "complete"]
+        assert [t.data_quality for t in track_rows] == [
+            "minimal",
+            "partial",
+            "complete",
+        ]

@@ -41,7 +41,9 @@ def _build_app() -> FastAPI:
     )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    async def validation_exception_handler(
+        _: Request, exc: RequestValidationError
+    ) -> JSONResponse:
         errors = exc.errors()
         first = errors[0] if errors else {}
         loc = first.get("loc")
@@ -73,7 +75,9 @@ def _build_app() -> FastAPI:
         return JSONResponse(
             status_code=500,
             content=ErrorEnvelope(
-                error=ErrorDetail(code="internal_error", message="Unhandled server error")
+                error=ErrorDetail(
+                    code="internal_error", message="Unhandled server error"
+                )
             ).model_dump(),
         )
 

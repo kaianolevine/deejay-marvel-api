@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import PipelineEvaluation as DbEval
-from ..schemas import Envelope, PipelineEvaluationItem, PrefectWebhookPayload, success_envelope
+from ..schemas import (
+    Envelope,
+    PipelineEvaluationItem,
+    PrefectWebhookPayload,
+    success_envelope,
+)
 
 router = APIRouter()
 log = logger_mod.get_logger()
@@ -41,7 +46,11 @@ async def prefect_webhook(
     severity = _severity_for_state(state_type)
     standards_version = getattr(settings, "STANDARDS_VERSION", "6.0")
 
-    if payload.flow_name is None or payload.state_name is None or payload.state_type is None:
+    if (
+        payload.flow_name is None
+        or payload.state_name is None
+        or payload.state_type is None
+    ):
         log.warning(
             (
                 "Prefect webhook payload missing fields; using safe fallbacks. "

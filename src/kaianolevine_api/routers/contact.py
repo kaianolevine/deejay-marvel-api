@@ -187,7 +187,9 @@ async def _send_brevo_email(
 def _error_response(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(
         status_code=status,
-        content=ErrorEnvelope(error=ErrorDetail(code=code, message=message)).model_dump(),
+        content=ErrorEnvelope(
+            error=ErrorDetail(code=code, message=message)
+        ).model_dump(),
     )
 
 
@@ -260,7 +262,9 @@ async def submit_contact(request: Request) -> Response:
     )
 
     # --- Send via Brevo ---
-    if not all([settings.BREVO_API_KEY, settings.CONTACT_TO_EMAIL, settings.CONTACT_FROM_EMAIL]):
+    if not all(
+        [settings.BREVO_API_KEY, settings.CONTACT_TO_EMAIL, settings.CONTACT_FROM_EMAIL]
+    ):
         return _error_response(500, "config_error", "Email configuration missing")
 
     sent, error_detail = await _send_brevo_email(
@@ -274,7 +278,9 @@ async def submit_contact(request: Request) -> Response:
     )
 
     if not sent:
-        return _error_response(502, "email_failed", f"Failed to send email: {error_detail}")
+        return _error_response(
+            502, "email_failed", f"Failed to send email: {error_detail}"
+        )
 
     # --- Redirect or plain OK ---
     if redirect and origin:
