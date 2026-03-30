@@ -54,6 +54,14 @@ def _build_app() -> FastAPI:
                 error=ErrorDetail(
                     code="validation_error",
                     message=f"Validation error at {loc}: {msg}",
+                    details=[
+                        {
+                            "loc": str(e.get("loc")),
+                            "msg": e.get("msg"),
+                            "type": e.get("type"),
+                        }
+                        for e in errors
+                    ],
                 )
             ).model_dump(),
         )
@@ -64,7 +72,11 @@ def _build_app() -> FastAPI:
             detail: Any = exc.detail
             if isinstance(detail, dict) and "code" in detail and "message" in detail:
                 payload = ErrorEnvelope(
-                    error=ErrorDetail(code=detail["code"], message=detail["message"])
+                    error=ErrorDetail(
+                        code=detail["code"],
+                        message=detail["message"],
+                        details=detail.get("details"),
+                    )
                 ).model_dump()
             else:
                 payload = ErrorEnvelope(
@@ -87,7 +99,11 @@ def _build_app() -> FastAPI:
         detail: Any = exc.detail
         if isinstance(detail, dict) and "code" in detail and "message" in detail:
             payload = ErrorEnvelope(
-                error=ErrorDetail(code=detail["code"], message=detail["message"])
+                error=ErrorDetail(
+                    code=detail["code"],
+                    message=detail["message"],
+                    details=detail.get("details"),
+                )
             ).model_dump()
         else:
             payload = ErrorEnvelope(
@@ -113,6 +129,17 @@ def _build_app() -> FastAPI:
 
 
 app = _build_app()
+
+
+@app.get("/version", tags=["meta"])
+async def version() -> dict:
+    from importlib.metadata import version as pkg_version
+
+    try:
+        v = pkg_version("kaianolevine-api")
+    except Exception:
+        v = get_settings().API_VERSION
+    return {"version": v}
 
 
 @app.on_event("startup")

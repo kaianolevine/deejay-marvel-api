@@ -184,11 +184,16 @@ async def _send_brevo_email(
     return False, resp.text
 
 
-def _error_response(status: int, code: str, message: str) -> JSONResponse:
+def _error_response(
+    status: int,
+    code: str,
+    message: str,
+    details: dict | str | None = None,
+) -> JSONResponse:
     return JSONResponse(
         status_code=status,
         content=ErrorEnvelope(
-            error=ErrorDetail(code=code, message=message)
+            error=ErrorDetail(code=code, message=message, details=details)
         ).model_dump(),
     )
 
@@ -232,8 +237,24 @@ async def submit_contact(request: Request) -> Response:
     # Only redirect when explicitly requested; if the field is omitted, default to no redirect.
     redirect = _parse_bool(redirect_raw, False)
 
-    if not all([submission_type, origin_site, email, token]):
-        return _error_response(400, "validation_error", "Missing required fields")
+    _field_keys = {
+        "type": ["type"],
+        "originSite": ["originSite", "origin_site", "site", "source"],
+        "email": ["email", "replyTo", "reply_to"],
+        "turnstileToken": ["turnstileToken", "token", "cf-turnstile-response"],
+    }
+    missing = [
+        f
+        for f in ["type", "originSite", "email", "turnstileToken"]
+        if not _pick(fields, _field_keys[f])
+    ]
+    if missing:
+        return _error_response(
+            400,
+            "validation_error",
+            "Missing required fields",
+            details={"missing": missing},
+        )
 
     # --- Turnstile verification ---
     remote_ip = request.client.host if request.client else None
@@ -243,7 +264,11 @@ async def submit_contact(request: Request) -> Response:
         remote_ip=remote_ip,
     )
     if not turnstile_ok:
-        return _error_response(400, "turnstile_failed", "Invalid verification")
+        return _error_response(
+            400,
+            "turnstile_failed",
+            "CAPTCHA verification failed — please refresh and try again",
+        )
 
     # --- Build email ---
     reply_name = _derive_reply_name(fields)
@@ -279,7 +304,7 @@ async def submit_contact(request: Request) -> Response:
 
     if not sent:
         return _error_response(
-            502, "email_failed", f"Failed to send email: {error_detail}"
+            502, "email_failed", "Failed to send email", details=error_detail
         )
 
     # --- Redirect or plain OK ---

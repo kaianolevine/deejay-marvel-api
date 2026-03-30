@@ -131,7 +131,9 @@ async def test_contact_missing_required_field(
         headers={"origin": "https://kaianolevine.com"},
     )
     assert resp.status_code == 400
-    assert resp.json()["error"]["code"] == "validation_error"
+    payload = resp.json()
+    assert payload["error"]["code"] == "validation_error"
+    assert payload["error"]["details"]["missing"] == [missing_field]
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +154,12 @@ async def test_contact_turnstile_failure(client: AsyncClient) -> None:
         )
 
     assert resp.status_code == 400
-    assert resp.json()["error"]["code"] == "turnstile_failed"
+    err = resp.json()["error"]
+    assert err["code"] == "turnstile_failed"
+    assert (
+        err["message"]
+        == "CAPTCHA verification failed — please refresh and try again"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +186,10 @@ async def test_contact_brevo_failure(client: AsyncClient) -> None:
         )
 
     assert resp.status_code == 502
-    assert resp.json()["error"]["code"] == "email_failed"
+    body = resp.json()
+    assert body["error"]["code"] == "email_failed"
+    assert "details" in body["error"]
+    assert body["error"]["details"] == "upstream error"
 
 
 # ---------------------------------------------------------------------------

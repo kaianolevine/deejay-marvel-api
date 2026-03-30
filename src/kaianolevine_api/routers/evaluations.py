@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_owner
@@ -19,6 +19,73 @@ from ..schemas import (
 )
 
 router = APIRouter()
+
+
+def _eligible_latest_evaluation_ids_subquery():
+    """
+    Rows that belong to the latest "run" per (repo, source).
+
+    Prefer run_id: at max(evaluated_at), take distinct non-null run_id; return all
+    rows with that run_id for the repo+source. If the latest rows only have
+    run_id NULL, fall back to rows exactly at max(evaluated_at).
+    """
+    latest_ts = (
+        select(
+            DbEval.repo,
+            DbEval.source,
+            func.max(DbEval.evaluated_at).label("latest_at"),
+        )
+        .group_by(DbEval.repo, DbEval.source)
+        .subquery()
+    )
+
+    latest_run_ids = (
+        select(
+            DbEval.repo,
+            DbEval.source,
+            DbEval.run_id,
+        )
+        .join(
+            latest_ts,
+            (DbEval.repo == latest_ts.c.repo)
+            & (DbEval.source == latest_ts.c.source)
+            & (DbEval.evaluated_at == latest_ts.c.latest_at),
+        )
+        .where(DbEval.run_id.isnot(None))
+        .distinct()
+        .subquery()
+    )
+
+    has_run_id_at_latest = (
+        select(latest_run_ids.c.repo, latest_run_ids.c.source)
+        .distinct()
+        .subquery()
+    )
+
+    eligible_by_run = select(DbEval.id).join(
+        latest_run_ids,
+        (DbEval.repo == latest_run_ids.c.repo)
+        & (DbEval.source == latest_run_ids.c.source)
+        & (DbEval.run_id == latest_run_ids.c.run_id),
+    )
+
+    eligible_by_ts = (
+        select(DbEval.id)
+        .join(
+            latest_ts,
+            (DbEval.repo == latest_ts.c.repo)
+            & (DbEval.source == latest_ts.c.source)
+            & (DbEval.evaluated_at == latest_ts.c.latest_at),
+        )
+        .outerjoin(
+            has_run_id_at_latest,
+            (DbEval.repo == has_run_id_at_latest.c.repo)
+            & (DbEval.source == has_run_id_at_latest.c.source),
+        )
+        .where(has_run_id_at_latest.c.repo.is_(None))
+    )
+
+    return union(eligible_by_run, eligible_by_ts)
 
 
 @router.get(
@@ -37,23 +104,10 @@ async def list_evaluations(
 ) -> Envelope[list[PipelineEvaluationItem]]:
     settings = get_settings()
 
-    latest_runs = (
-        select(
-            DbEval.repo,
-            DbEval.source,
-            func.max(DbEval.evaluated_at).label("latest_at"),
-        )
-        .group_by(DbEval.repo, DbEval.source)
-        .subquery()
-    )
+    eligible = _eligible_latest_evaluation_ids_subquery()
     stmt = (
         select(DbEval)
-        .join(
-            latest_runs,
-            (DbEval.repo == latest_runs.c.repo)
-            & (DbEval.source == latest_runs.c.source)
-            & (DbEval.evaluated_at == latest_runs.c.latest_at),
-        )
+        .where(DbEval.id.in_(eligible))
         .order_by(DbEval.evaluated_at.desc())
     )
     if repo:
@@ -97,15 +151,7 @@ async def evaluations_summary(
 ) -> Envelope[list[EvaluationSummaryItem]]:
     settings = get_settings()
 
-    latest_runs = (
-        select(
-            DbEval.repo,
-            DbEval.source,
-            func.max(DbEval.evaluated_at).label("latest_at"),
-        )
-        .group_by(DbEval.repo, DbEval.source)
-        .subquery()
-    )
+    eligible = _eligible_latest_evaluation_ids_subquery()
     stmt = (
         select(
             DbEval.dimension,
@@ -116,12 +162,7 @@ async def evaluations_summary(
             func.sum(case((DbEval.severity == "INFO", 1), else_=0)).label("info_count"),
             func.max(DbEval.evaluated_at).label("most_recent"),
         )
-        .join(
-            latest_runs,
-            (DbEval.repo == latest_runs.c.repo)
-            & (DbEval.source == latest_runs.c.source)
-            & (DbEval.evaluated_at == latest_runs.c.latest_at),
-        )
+        .where(DbEval.id.in_(eligible))
         .group_by(DbEval.dimension)
         .order_by(func.max(DbEval.evaluated_at).desc())
     )

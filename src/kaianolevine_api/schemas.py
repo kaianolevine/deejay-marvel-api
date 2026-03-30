@@ -24,6 +24,7 @@ class Envelope(BaseModel, Generic[T]):
 class ErrorDetail(BaseModel):
     code: str
     message: str
+    details: dict | list | str | None = None
 
 
 class ErrorEnvelope(BaseModel):
@@ -333,14 +334,20 @@ class PrefectWebhookPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-def api_error(status_code: int, code: str, message: str) -> HTTPException:
+def api_error(
+    status_code: int,
+    code: str,
+    message: str,
+    details: dict | list | str | None = None,
+) -> HTTPException:
     """
     Helper for raising errors with the standard `{ error: { code, message } }` envelope.
     """
 
-    return HTTPException(
-        status_code=status_code, detail={"code": code, "message": message}
-    )
+    d: dict[str, str | dict | list | None] = {"code": code, "message": message}
+    if details is not None:
+        d["details"] = details
+    return HTTPException(status_code=status_code, detail=d)
 
 
 def success_envelope(data: T, *, count: int, version: str) -> Envelope[T]:
