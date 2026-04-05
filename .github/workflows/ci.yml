@@ -12,7 +12,7 @@ jobs:
     env:
       DATABASE_URL: "sqlite+aiosqlite:///:memory:"
       ENVIRONMENT: test
-      OWNER_ID: dev-owner
+      KAIANO_API_OWNER_ID: dev-owner
 
     steps:
       - uses: actions/checkout@v6
