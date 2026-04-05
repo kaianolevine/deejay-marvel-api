@@ -39,4 +39,4 @@ def get_current_owner(
     TODO: Replace with Clerk JWT verification before exposing this API
     to real user traffic. See module docstring above for the upgrade path.
     """
-    return x_owner_id or settings.OWNER_ID
+    return x_owner_id or settings.KAIANO_API_OWNER_ID
