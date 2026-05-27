@@ -1,3 +1,10 @@
+# [1.38.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.37.1...v1.38.0) (2026-05-27)
+
+
+### Features
+
+* automated migration application via scripts/apply_migrations.py ([be1c51c](https://github.com/mini-app-polis/api-kaianolevine-com/commit/be1c51c57325172786d5815a7e7c0f722ed35447))
+
 ## [1.37.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.37.0...v1.37.1) (2026-05-22)
 
 
