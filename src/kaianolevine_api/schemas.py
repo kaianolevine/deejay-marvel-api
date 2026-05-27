@@ -796,7 +796,7 @@ class WcsExtractionEntity(BaseModel):
         ...,
         description="Discriminator for the entity kind (concept, technique, pattern, drill).",
     )
-    name: str = Field(min_length=1, max_length=80, description="Human-readable name.")
+    name: str = Field(min_length=1, description="Human-readable name.")
     prose: str = Field("", description="Free-text content for this row.")
     external_origin: dict | None = Field(
         None, description="Optional external attribution (book, video, etc.)."
@@ -809,7 +809,7 @@ class WcsExtractionEntityDefinition(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     entity_name: str = Field(
-        min_length=1, max_length=80, description="Display name of the WCS entity."
+        min_length=1, description="Display name of the WCS entity."
     )
     definition: str = Field(
         min_length=1,
@@ -822,11 +822,10 @@ class WcsExtractionEntityRelation(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    from_: str = Field(alias="from", min_length=1, max_length=80, description="From.")
-    to: str = Field(min_length=1, max_length=80, description="To.")
+    from_: str = Field(alias="from", min_length=1, description="From.")
+    to: str = Field(min_length=1, description="To.")
     relation_kind: str = Field(
         min_length=1,
-        max_length=60,
         description="Discriminator for the entity-to-entity relation type.",
     )
     prose: str = Field("", description="Free-text content for this row.")
@@ -837,9 +836,9 @@ class WcsExtractionDrillPurpose(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    drill_name: str = Field(min_length=1, max_length=80, description="Drill name.")
+    drill_name: str = Field(min_length=1, description="Drill name.")
     skill_description: str = Field(
-        min_length=1, max_length=120, description="Free-text description of the skill."
+        min_length=1, description="Free-text description of the skill."
     )
     focus_context: str = Field(
         "", description="Focus or context hint that scopes how this row applies."
@@ -851,11 +850,9 @@ class WcsExtractionTechniqueRequirement(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    technique_name: str = Field(
-        min_length=1, max_length=80, description="Technique name."
-    )
+    technique_name: str = Field(min_length=1, description="Technique name.")
     skill_description: str = Field(
-        min_length=1, max_length=120, description="Free-text description of the skill."
+        min_length=1, description="Free-text description of the skill."
     )
 
 
@@ -884,7 +881,7 @@ class WcsExtractionReference(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    name: str = Field(min_length=1, max_length=60, description="Human-readable name.")
+    name: str = Field(min_length=1, description="Human-readable name.")
     type: (
         Literal[
             "instructor",
