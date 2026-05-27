@@ -43,6 +43,17 @@ def _entity_get(kind: str, path: str):
         owner_id: str = Depends(get_current_owner),
         session: AsyncSession = Depends(get_db_session),
     ) -> Envelope[WcsEntityViewItem]:
+        """Return the full wiki view for one ``kind`` entity by slug.
+
+        Resolves the slug under the caller's ownership scope and returns
+        the canonical entity view (with related instructors, sources,
+        and prerequisite/related entity links). Returns HTTP 404 with
+        ``entity_not_found`` when the slug is unknown to the caller.
+
+        Closure binding: ``kind`` is captured from the outer
+        :func:`_entity_get` factory so the same handler body serves all
+        four WCS wiki entity kinds (concept, technique, pattern, drill).
+        """
         settings = get_settings()
         view = await wiki_svc.get_entity_view(session, owner_id, slug=slug, kind=kind)
         if view is None:
@@ -66,6 +77,18 @@ def _entity_list(kind: str, path: str):
         _owner_id: str = Depends(get_current_owner),
         session: AsyncSession = Depends(get_db_session),
     ) -> Envelope[list[WcsEntityItem]]:
+        """Return a paginated list of ``kind`` entities with a total count.
+
+        Accepts an optional ``status`` filter (e.g. ``"published"``,
+        ``"draft"``) plus standard ``limit`` / ``offset`` pagination. The
+        envelope's ``total`` reflects the full filtered count so callers
+        can paginate without re-querying. ``_owner_id`` is required for
+        auth even though listings are not currently scoped per-owner.
+
+        Closure binding: ``kind`` is captured from the outer
+        :func:`_entity_list` factory so the same handler body serves all
+        four WCS wiki entity kinds (concept, technique, pattern, drill).
+        """
         settings = get_settings()
         items, total = await wiki_svc.list_entities(
             session, kind=kind, status=status, limit=limit, offset=offset

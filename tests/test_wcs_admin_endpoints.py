@@ -171,7 +171,9 @@ async def test_metadata_correction_envelope_shape(client, source_id: str) -> Non
     assert source_id in [str(x) for x in body["data"]["recomposed_source_ids"]]
 
 
-async def test_drill_purpose_addition_envelope_shape(client, rich_source_id: str) -> None:
+async def test_drill_purpose_addition_envelope_shape(
+    client, rich_source_id: str
+) -> None:
     """Contract: POST /wcs/admin/additions/drill_purpose returns {data, meta} on success."""
     resp = await client.post(
         "/v1/wcs/admin/additions/drill_purpose",
@@ -192,7 +194,9 @@ async def test_drill_purpose_addition_envelope_shape(client, rich_source_id: str
     assert "recomposed_source_ids" in body["data"]
 
 
-async def test_technique_requirement_addition_envelope_shape(client, rich_source_id: str) -> None:
+async def test_technique_requirement_addition_envelope_shape(
+    client, rich_source_id: str
+) -> None:
     """Contract: POST /wcs/admin/additions/technique_requirement returns {data, meta} on success."""
     resp = await client.post(
         "/v1/wcs/admin/additions/technique_requirement",
@@ -212,7 +216,9 @@ async def test_technique_requirement_addition_envelope_shape(client, rich_source
     assert "recomposed_source_ids" in body["data"]
 
 
-async def test_entity_relation_addition_envelope_shape(client, rich_source_id: str) -> None:
+async def test_entity_relation_addition_envelope_shape(
+    client, rich_source_id: str
+) -> None:
     """Contract: POST /wcs/admin/additions/entity_relation returns {data, meta} on success."""
     resp = await client.post(
         "/v1/wcs/admin/additions/entity_relation",
