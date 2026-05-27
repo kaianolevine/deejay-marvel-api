@@ -1,3 +1,10 @@
+## [1.38.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.38.0...v1.38.1) (2026-05-27)
+
+
+### Bug Fixes
+
+* remove max_length caps from extraction request schemas ([0fbd5f4](https://github.com/mini-app-polis/api-kaianolevine-com/commit/0fbd5f40147ecbad8bcb8223a33451e799778caa))
+
 # [1.38.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.37.1...v1.38.0) (2026-05-27)
 
 
