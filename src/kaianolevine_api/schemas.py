@@ -1306,7 +1306,8 @@ class WcsEntityRelationAdditionCreate(BaseModel):
 
 
 class WcsSourceReferenceItem(BaseModel):
-    """Person reference in a source for API responses."""
+    """A person mentioned in a source. Stored as a raw name with context;
+    not linked to canonical instructor records."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1314,13 +1315,16 @@ class WcsSourceReferenceItem(BaseModel):
     source_id: uuid.UUID = Field(
         ..., description="Identifier of the WCS source this row belongs to."
     )
-    instructor_id: uuid.UUID = Field(
-        ..., description="Identifier of the WCS instructor."
+    referenced_name: str = Field(
+        ..., description="Raw mention name from the extraction."
     )
     context: str = Field(..., description="Free-text context for the reference.")
     ref_type: str = Field(..., description="Ref type.")
     origin: str = Field(
         ..., description="Originating source or upstream attribution metadata."
+    )
+    created_at: dt.datetime = Field(
+        ..., description="Timestamp when this record was created."
     )
 
 
@@ -1365,7 +1369,8 @@ class WcsInstructorViewItem(BaseModel):
         description="Definitions sourced from this row's parent record.",
     )
     referenced_in: list[WcsSourceReferenceItem] = Field(
-        default_factory=list, description="Referenced in."
+        default_factory=list,
+        description="Deprecated: references are no longer linked to instructors.",
     )
 
 
@@ -1395,7 +1400,7 @@ class WcsSourceViewItem(BaseModel):
     )
     references: list[WcsSourceReferenceItem] = Field(
         default_factory=list,
-        description="Bare-reference rows (instructors mentioned but not attributed).",
+        description="People mentioned in the source (raw names, not attributed).",
     )
 
 
@@ -1428,7 +1433,7 @@ class WcsWikiExportItem(BaseModel):
     )
     references: list[WcsSourceReferenceItem] = Field(
         ...,
-        description="Bare-reference rows (instructors mentioned but not attributed).",
+        description="People mentioned in sources (raw names, not attributed).",
     )
     exported_at: dt.datetime = Field(..., description="Exported at.")
 

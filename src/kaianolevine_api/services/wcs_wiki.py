@@ -353,24 +353,11 @@ async def get_instructor_view(
         .all()
     )
 
-    ref_rows = (
-        (
-            await session.execute(
-                select(WcsSourceReference).where(
-                    WcsSourceReference.instructor_id == instructor.id,
-                    WcsSourceReference.source_id.in_(visible_ids),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-
     return WcsInstructorViewItem(
         instructor=_instructor_item(instructor, alias_map.get(instructor.id, [])),
         attributions=[WcsSourceAttributionItem.model_validate(a) for a in attr_rows],
         definitions=[WcsEntityDefinitionItem.model_validate(d) for d in def_rows],
-        referenced_in=[WcsSourceReferenceItem.model_validate(r) for r in ref_rows],
+        referenced_in=[],
     )
 
 
@@ -623,7 +610,6 @@ async def export_wiki_corpus(
 
     instructor_ids = {a.instructor_id for a in attributions if a.instructor_id}
     instructor_ids |= {d.instructor_id for d in definitions if d.instructor_id}
-    instructor_ids |= {r.instructor_id for r in references}
 
     entities: list[WcsEntity] = []
     if entity_ids_from_rows:

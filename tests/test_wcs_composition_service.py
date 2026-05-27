@@ -19,6 +19,7 @@ from kaianolevine_api.models import (
     WcsEntityDefinition,
     WcsEntityRelation,
     WcsEntityRelationAddition,
+    WcsInstructor,
     WcsNameCorrection,
     WcsSource,
     WcsSourceAttribution,
@@ -341,7 +342,55 @@ async def test_compose_source_writes_canonical_rows(db_session: AsyncSession) ->
         .all()
     )
     assert len(refs) == 1
+    assert refs[0].referenced_name == "Ben Morris"
     assert refs[0].ref_type == "judge"
+
+    instructors = (await db_session.execute(select(WcsInstructor))).scalars().all()
+    assert len(instructors) == 1
+    assert instructors[0].canonical_name == "Kaiano"
+
+
+async def test_compose_source_does_not_create_instructor_from_references(
+    db_session: AsyncSession,
+) -> None:
+    """References are stored as raw name strings only — no wcs_instructors rows."""
+    raw = _sample_raw_output()
+    raw["entities"] = []
+    raw["entity_definitions"] = []
+    raw["entity_relations"] = []
+    raw["drill_purposes"] = []
+    raw["technique_requirements"] = []
+    raw["common_mistakes"] = []
+    raw["competition_notes"] = []
+    raw["references"] = [
+        {"name": "Robert", "type": "teacher", "context": "quoted"},
+        {"name": "Amy", "type": "dancer", "context": "mentioned"},
+        {"name": "Skippy", "type": "judge", "context": "cited"},
+    ]
+    source, _ = await _seed_source_with_extraction(
+        db_session, raw_output=raw, instructors_raw=["Kaiano"]
+    )
+
+    await compose_source(db_session, source.id)
+    await db_session.commit()
+
+    instructors = (await db_session.execute(select(WcsInstructor))).scalars().all()
+    assert len(instructors) == 1
+    assert instructors[0].canonical_name == "Kaiano"
+
+    refs = (
+        (
+            await db_session.execute(
+                select(WcsSourceReference).where(
+                    WcsSourceReference.source_id == source.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(refs) == 3
+    assert {r.referenced_name for r in refs} == {"Robert", "Amy", "Skippy"}
 
 
 async def test_compose_source_idempotent(db_session: AsyncSession) -> None:

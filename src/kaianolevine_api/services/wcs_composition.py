@@ -305,8 +305,9 @@ async def compose_source(
     Reads the active source_extraction plus all applicable corrections and
     additions. Writes wcs_source_attributions, wcs_entity_definitions,
     wcs_entity_relations, wcs_drill_purposes, wcs_technique_requirements,
-    wcs_source_references rows. Creates wcs_entities and wcs_instructors
-    rows as needed via entity resolution.
+    wcs_source_references rows (raw mention names, not linked to instructors).
+    Creates wcs_entities and wcs_instructors rows as needed via entity
+    resolution and instructors_raw / attribution paths.
 
     Idempotent: re-running for the same source with the same inputs produces
     the same canonical state. Existing canonical rows for the source are
@@ -569,11 +570,10 @@ async def compose_source(
             counts["attributions"] += 1
 
     for ref in raw_output.references:
-        instructor = await resolve_instructor(session, ref.name, source_id)
         session.add(
             WcsSourceReference(
                 source_id=source_id,
-                instructor_id=instructor.id,
+                referenced_name=ref.name,
                 context=ref.context,
                 ref_type=ref.type or "",
                 origin="extraction",

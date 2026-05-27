@@ -156,7 +156,9 @@ async def test_entity_not_found_error_envelope(client) -> None:
 async def test_get_instructor_view(client, seeded_source) -> None:
     resp = await client.get("/v1/wcs/wiki/instructors/kaiano")
     assert resp.status_code == 200
-    assert resp.json()["data"]["instructor"]["slug"] == "kaiano"
+    data = resp.json()["data"]
+    assert data["instructor"]["slug"] == "kaiano"
+    assert data["referenced_in"] == []
 
 
 async def test_get_source_view(client, seeded_source) -> None:
@@ -166,6 +168,10 @@ async def test_get_source_view(client, seeded_source) -> None:
     data = resp.json()["data"]
     assert data["source"]["id"] == source_id
     assert len(data["attributions"]) >= 1
+    refs = data["references"]
+    assert len(refs) >= 1
+    assert refs[0]["referenced_name"] == "Ben Morris"
+    assert "instructor_id" not in refs[0]
 
 
 async def test_export_shape(client, seeded_source) -> None:
@@ -176,6 +182,9 @@ async def test_export_shape(client, seeded_source) -> None:
     assert "attributions" in data
     assert "exported_at" in data
     assert len(data["entities"]) >= 1
+    if data["references"]:
+        assert "referenced_name" in data["references"][0]
+        assert "instructor_id" not in data["references"][0]
 
 
 async def test_entity_not_found(client) -> None:

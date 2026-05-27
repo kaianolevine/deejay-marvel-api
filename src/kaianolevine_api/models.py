@@ -1074,7 +1074,10 @@ class WcsSourceAttribution(Base):
 
 
 class WcsSourceReference(Base):
-    """Person mentioned in a source but not as a teaching attribution."""
+    """Person mentioned in a source. Stored as raw name with context;
+    references are intentionally not linked to canonical wcs_instructors
+    because first-name-only mentions cannot be reliably disambiguated.
+    """
 
     __tablename__ = "wcs_source_references"
 
@@ -1089,12 +1092,7 @@ class WcsSourceReference(Base):
         nullable=False,
         index=True,
     )
-    instructor_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("wcs_instructors.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    referenced_name: Mapped[str] = mapped_column(Text, nullable=False)
     context: Mapped[str] = mapped_column(
         Text, nullable=False, default="", server_default=""
     )
@@ -1111,7 +1109,6 @@ class WcsSourceReference(Base):
     source: Mapped[WcsSource] = relationship(
         back_populates="references", lazy="selectin"
     )
-    instructor: Mapped[WcsInstructor] = relationship(lazy="selectin")
 
 
 class WcsDrillPurpose(Base):
