@@ -66,7 +66,7 @@ def _source_payload(transcript_id: uuid.UUID, **overrides) -> dict:
 
 async def _create_transcript(client) -> uuid.UUID:
     resp = await client.post("/v1/wcs/transcripts", json=_transcript_payload())
-    assert resp.status_code == 200
+    assert resp.status_code == 201
     return uuid.UUID(resp.json()["data"]["id"])
 
 

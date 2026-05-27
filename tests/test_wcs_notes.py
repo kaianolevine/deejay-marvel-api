@@ -5,7 +5,10 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from kaianolevine_api.models import WcsSourceExtraction, WcsTranscript
 
 
 @pytest.fixture(autouse=True)
@@ -59,7 +62,7 @@ async def _create_transcript(client, **overrides) -> dict:
     resp = await client.post(
         "/v1/wcs/transcripts", json=_transcript_payload(**overrides)
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 201
     return resp.json()["data"]
 
 
@@ -76,7 +79,7 @@ async def _create_note(client, transcript_id: str, **overrides) -> dict:
 
 async def test_create_transcript_returns_envelope(client) -> None:
     resp = await client.post("/v1/wcs/transcripts", json=_transcript_payload())
-    assert resp.status_code == 200
+    assert resp.status_code == 201
     body = resp.json()
     assert set(body.keys()) == {"data", "meta"}
     assert body["meta"]["count"] == 1
@@ -104,6 +107,130 @@ async def test_create_transcript_invalid_source_type(client) -> None:
         json=_transcript_payload(source_type="cassette_tape"),
     )
     assert resp.status_code == 422
+
+
+async def test_create_transcript_new_file_returns_201(client) -> None:
+    response = await client.post(
+        "/v1/wcs/transcripts",
+        json={
+            "raw_text": "Sample transcript text.",
+            "source_type": "unknown",
+            "source_filename": "2025-06-28 Test > File",
+            "drive_file_id": "drive_id_test_new",
+        },
+    )
+    assert response.status_code == 201
+    body = response.json()["data"]
+    assert body["drive_file_id"] == "drive_id_test_new"
+
+
+async def test_create_transcript_reingestion_returns_200_and_updates_text(
+    client, async_engine
+) -> None:
+    initial = await client.post(
+        "/v1/wcs/transcripts",
+        json={
+            "raw_text": "Original text.",
+            "source_type": "unknown",
+            "source_filename": "2025-06-28 Test > File",
+            "drive_file_id": "drive_id_test_reingest",
+        },
+    )
+    assert initial.status_code == 201
+    initial_id = initial.json()["data"]["id"]
+
+    reingest = await client.post(
+        "/v1/wcs/transcripts",
+        json={
+            "raw_text": "Updated text after re-extraction.",
+            "source_type": "unknown",
+            "source_filename": "2025-06-28 Test > File",
+            "drive_file_id": "drive_id_test_reingest",
+        },
+    )
+    assert reingest.status_code == 200
+    assert reingest.json()["data"]["id"] == initial_id
+
+    sm = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with sm() as session:
+        stored = await session.get(WcsTranscript, uuid.UUID(initial_id))
+        assert stored is not None
+        assert stored.raw_text == "Updated text after re-extraction."
+
+
+def _source_payload_for_demote_test(transcript_id: str) -> dict:
+    return {
+        "transcript_id": transcript_id,
+        "session_date": "2025-06-28",
+        "session_type": "workshop",
+        "instructors_raw": ["TestInstructor"],
+        "students_raw": ["TestStudent"],
+        "organization": "",
+        "extractor_version": "test-1",
+        "extractor_model": "test-model",
+        "extractor_provider": "test",
+        "prompt_version": "test-1",
+        "raw_output": {
+            "entities": [],
+            "entity_definitions": [],
+            "entity_relations": [],
+            "drill_purposes": [],
+            "technique_requirements": [],
+            "common_mistakes": [],
+            "competition_notes": [],
+            "references": [],
+        },
+    }
+
+
+async def test_create_transcript_reingestion_demotes_active_extractions(
+    client, async_engine
+) -> None:
+    transcript_resp = await client.post(
+        "/v1/wcs/transcripts",
+        json={
+            "raw_text": "Text v1.",
+            "source_type": "unknown",
+            "source_filename": "2025-06-28 Demote Test",
+            "drive_file_id": "drive_id_test_demote",
+        },
+    )
+    assert transcript_resp.status_code == 201
+    transcript_id = transcript_resp.json()["data"]["id"]
+
+    source_resp = await client.post(
+        "/v1/wcs/sources",
+        json=_source_payload_for_demote_test(transcript_id),
+    )
+    assert source_resp.status_code == 200
+    source_id = uuid.UUID(source_resp.json()["data"]["id"])
+
+    reingest_resp = await client.post(
+        "/v1/wcs/transcripts",
+        json={
+            "raw_text": "Text v2.",
+            "source_type": "unknown",
+            "source_filename": "2025-06-28 Demote Test",
+            "drive_file_id": "drive_id_test_demote",
+        },
+    )
+    assert reingest_resp.status_code == 200
+
+    sm = async_sessionmaker(async_engine, expire_on_commit=False)
+    async with sm() as session:
+        active = (
+            (
+                await session.execute(
+                    select(WcsSourceExtraction).where(
+                        WcsSourceExtraction.source_id == source_id,
+                        WcsSourceExtraction.is_active.is_(True),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert active == []
 
 
 # ── POST /v1/wcs/notes ────────────────────────────────────────────────────────

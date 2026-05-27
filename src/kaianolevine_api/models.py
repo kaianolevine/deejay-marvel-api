@@ -288,6 +288,13 @@ class WcsTranscript(Base):
     """Raw transcript storage. Retained for future RAG/embeddings corpus."""
 
     __tablename__ = "wcs_transcripts"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id",
+            "drive_file_id",
+            name="uq_wcs_transcripts_owner_drive_file",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

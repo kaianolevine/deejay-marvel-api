@@ -43,7 +43,7 @@ async def _transcript(session: AsyncSession) -> uuid.UUID:
         raw_text="x",
         source_type="plaud",
         source_filename="f.txt",
-        drive_file_id="d",
+        drive_file_id=f"d-{uuid.uuid4().hex[:8]}",
     )
     session.add(t)
     await session.flush()

@@ -64,7 +64,7 @@ async def _create_transcript(client, **overrides) -> dict:
     }
     payload.update(overrides)
     resp = await client.post("/v1/wcs/transcripts", json=payload)
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 201, resp.text
     return resp.json()["data"]
 
 

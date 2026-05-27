@@ -11,10 +11,10 @@ import datetime as dt
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response, status
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_owner
@@ -22,6 +22,8 @@ from ..config import get_settings
 from ..database import get_db_session
 from ..models import LegacyWcsNote as DbNote
 from ..models import WcsNoteGrant
+from ..models import WcsSource as DbSource
+from ..models import WcsSourceExtraction as DbSourceExtraction
 from ..models import WcsTranscript as DbTranscript
 from ..schemas import (
     Envelope,
@@ -53,27 +55,68 @@ log = logger_mod.get_logger()
 )
 async def create_transcript(
     payload: WcsTranscriptCreate,
+    response: Response,
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsTranscriptItem]:
-    """Persist a raw WCS transcript for later note extraction."""
+    """Persist a raw WCS transcript, with idempotent re-ingestion.
+
+    If no transcript exists for (owner_id, drive_file_id), creates one
+    and returns 201. If one exists, updates its raw_text, demotes any
+    active extractions on its associated source(s), and returns 200.
+
+    The re-ingestion signal is the file's presence in the cog's input
+    Drive folder — the operator workflow moves processed files out of
+    that folder, so a file reappearing there means "process this again."
+    """
     log.info(
         "%s storing transcript source_filename=%s", LOG_START, payload.source_filename
     )
 
-    row = DbTranscript(
-        owner_id=owner_id,
-        raw_text=payload.raw_text,
-        source_type=payload.source_type,
-        source_filename=payload.source_filename,
-        drive_file_id=payload.drive_file_id,
+    existing_q = select(DbTranscript).where(
+        DbTranscript.owner_id == owner_id,
+        DbTranscript.drive_file_id == payload.drive_file_id,
     )
-    session.add(row)
-    await session.flush()
-    await session.commit()
-    await session.refresh(row)
+    existing = (await session.execute(existing_q)).scalar_one_or_none()
 
-    log.info("%s transcript stored id=%s", LOG_SUCCESS, row.id)
+    if existing is None:
+        row = DbTranscript(
+            owner_id=owner_id,
+            raw_text=payload.raw_text,
+            source_type=payload.source_type,
+            source_filename=payload.source_filename,
+            drive_file_id=payload.drive_file_id,
+        )
+        session.add(row)
+        await session.flush()
+        await session.commit()
+        await session.refresh(row)
+        response.status_code = status.HTTP_201_CREATED
+        log.info("%s transcript created id=%s", LOG_SUCCESS, row.id)
+    else:
+        existing.raw_text = payload.raw_text
+        existing.source_type = payload.source_type
+        existing.source_filename = payload.source_filename
+
+        demote_q = (
+            update(DbSourceExtraction)
+            .where(
+                DbSourceExtraction.source_id.in_(
+                    select(DbSource.id).where(DbSource.transcript_id == existing.id)
+                ),
+                DbSourceExtraction.is_active.is_(True),
+            )
+            .values(is_active=False)
+        )
+        await session.execute(demote_q)
+        await session.commit()
+        await session.refresh(existing)
+        row = existing
+        log.info(
+            "%s transcript re-ingested id=%s — active extractions demoted",
+            LOG_SUCCESS,
+            row.id,
+        )
 
     settings = get_settings()
     data = WcsTranscriptItem(
