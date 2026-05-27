@@ -1,3 +1,10 @@
+# [1.39.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.38.1...v1.39.0) (2026-05-27)
+
+
+### Features
+
+* enforce transcript uniqueness with idempotent re-ingestion ([7badb68](https://github.com/mini-app-polis/api-kaianolevine-com/commit/7badb68ab3d1ad199c84f11a6f73952436a35cae))
+
 ## [1.38.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.38.0...v1.38.1) (2026-05-27)
 
 
