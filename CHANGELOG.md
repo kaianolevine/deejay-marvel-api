@@ -1,3 +1,10 @@
+## [1.40.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.40.0...v1.40.1) (2026-05-28)
+
+
+### Bug Fixes
+
+* expose entity_id on WcsSourceAttributionItem ([297f355](https://github.com/mini-app-polis/api-kaianolevine-com/commit/297f355f2e07e6371a8a5ff5a39d92a3a0ccf47f))
+
 # [1.40.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.39.0...v1.40.0) (2026-05-28)
 
 
