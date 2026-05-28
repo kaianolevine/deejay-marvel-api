@@ -1,3 +1,12 @@
+# [1.41.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.40.1...v1.41.0) (2026-05-28)
+
+
+### Features
+
+* GET /v1/wcs/wiki/export is admin-only, returns full corpus ([58ac1ca](https://github.com/mini-app-polis/api-kaianolevine-com/commit/58ac1ca40cf927507210be45150c1621df299bdd))
+* require_wcs_service for machine callers; export accepts admin OR service ([759875b](https://github.com/mini-app-polis/api-kaianolevine-com/commit/759875b9fd557d8ca4f298510eb04cbc823d4110))
+* require_wcs_service; export is cog-only, returns full corpus ([91ffa16](https://github.com/mini-app-polis/api-kaianolevine-com/commit/91ffa161281c8c3a01748faf50de94f8877bc97a))
+
 ## [1.40.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.40.0...v1.40.1) (2026-05-28)
 
 
