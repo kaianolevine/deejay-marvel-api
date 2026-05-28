@@ -244,19 +244,26 @@ async def get_source_admin(
 @router.get(
     "/wcs/wiki/export",
     response_model=Envelope[WcsWikiExportItem],
-    summary="Bulk export visible corpus",
+    summary="Bulk export full corpus (admin-only)",
     description=(
-        "Returns the full WCS corpus visible to the caller in one response. "
-        "Used by wiki-curator-cog."
+        "Returns the entire WCS corpus in one response, regardless of per-caller "
+        "visibility. Admin-only. Used by wiki-curator-cog to render the wiki as "
+        "a single bundled artifact. The endpoint's protection is the auth gate, "
+        "not per-user filtering."
     ),
 )
 async def export_wiki(
-    owner_id: str = Depends(get_current_owner),
+    _admin_id: str = Depends(require_wcs_admin),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsWikiExportItem]:
-    """Return the full WCS corpus visible to the caller in one response (used by wiki-curator-cog)."""
-    log.info("%s wiki export user=%s", LOG_START, owner_id)
+    """Return the full WCS corpus (admin-only, not visibility-filtered)."""
+    log.info("%s wiki export (admin) admin=%s", LOG_START, _admin_id)
     settings = get_settings()
-    data = await wiki_svc.export_wiki_corpus(session, owner_id)
-    log.info("%s wiki export entities=%d", LOG_SUCCESS, len(data.entities))
+    data = await wiki_svc.export_wiki_corpus(session)
+    log.info(
+        "%s wiki export entities=%d sources=%d",
+        LOG_SUCCESS,
+        len(data.entities),
+        len(data.sources),
+    )
     return success_envelope(data, count=1, total=1, version=settings.API_VERSION)

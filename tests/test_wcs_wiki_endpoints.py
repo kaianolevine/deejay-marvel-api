@@ -357,7 +357,5 @@ async def test_visibility_filters_private_source(client, async_engine) -> None:
         resp = await stranger.get(f"/v1/wcs/wiki/sources/{source_id}")
         assert resp.status_code == 404
         export = await stranger.get("/v1/wcs/wiki/export")
-        assert export.status_code == 200
-        ids = {s["id"] for s in export.json()["data"]["sources"]}
-        assert source_id not in ids
+        assert export.status_code == 403
     auth_mod.verify_clerk_jwt = original_verify

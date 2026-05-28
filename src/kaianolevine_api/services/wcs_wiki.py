@@ -553,154 +553,39 @@ async def patch_source_admin(
 
 async def export_wiki_corpus(
     session: AsyncSession,
-    user_id: str,
 ) -> WcsWikiExportItem:
-    """Return the full corpus snapshot (entities, instructors, sources, etc.) visible to the user."""
-    visible_ids = await visible_source_ids_for_user(session, user_id)
-    if not visible_ids:
-        return WcsWikiExportItem(
-            entities=[],
-            instructors=[],
-            sources=[],
-            attributions=[],
-            definitions=[],
-            relations=[],
-            drill_purposes=[],
-            technique_requirements=[],
-            references=[],
-            exported_at=dt.datetime.now(dt.UTC),
-        )
-
-    sources = (
-        (await session.execute(select(WcsSource).where(WcsSource.id.in_(visible_ids))))
-        .scalars()
-        .all()
-    )
-
-    attributions = (
-        (
-            await session.execute(
-                select(WcsSourceAttribution).where(
-                    WcsSourceAttribution.source_id.in_(visible_ids)
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    definitions = (
-        (
-            await session.execute(
-                select(WcsEntityDefinition).where(
-                    WcsEntityDefinition.source_id.in_(visible_ids)
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-    entity_ids_from_rows = {a.entity_id for a in attributions} | {
-        d.entity_id for d in definitions
-    }
-
-    relations = (
-        (
-            await session.execute(
-                select(WcsEntityRelation).where(
-                    or_(
-                        WcsEntityRelation.source_id.is_(None),
-                        WcsEntityRelation.source_id.in_(visible_ids),
-                    )
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for r in relations:
-        entity_ids_from_rows.add(r.from_entity_id)
-        entity_ids_from_rows.add(r.to_entity_id)
-
-    drill_purposes = (
-        (
-            await session.execute(
-                select(WcsDrillPurpose).where(
-                    or_(
-                        WcsDrillPurpose.source_id.is_(None),
-                        WcsDrillPurpose.source_id.in_(visible_ids),
-                    )
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for d in drill_purposes:
-        entity_ids_from_rows.add(d.drill_entity_id)
-
+    """Return the full corpus snapshot (entities, instructors, sources, and all
+    per-source content rows). Not visibility-filtered — the caller (the route)
+    is responsible for gating access; this function returns everything.
+    """
+    sources = (await session.execute(select(WcsSource))).scalars().all()
+    attributions = (await session.execute(select(WcsSourceAttribution))).scalars().all()
+    definitions = (await session.execute(select(WcsEntityDefinition))).scalars().all()
+    relations = (await session.execute(select(WcsEntityRelation))).scalars().all()
+    drill_purposes = (await session.execute(select(WcsDrillPurpose))).scalars().all()
     technique_requirements = (
+        (await session.execute(select(WcsTechniqueRequirement))).scalars().all()
+    )
+    references = (await session.execute(select(WcsSourceReference))).scalars().all()
+
+    entities = (
         (
             await session.execute(
-                select(WcsTechniqueRequirement).where(
-                    or_(
-                        WcsTechniqueRequirement.source_id.is_(None),
-                        WcsTechniqueRequirement.source_id.in_(visible_ids),
-                    )
-                )
+                select(WcsEntity).where(WcsEntity.merged_into_id.is_(None))
             )
         )
         .scalars()
         .all()
     )
-    for t in technique_requirements:
-        entity_ids_from_rows.add(t.technique_entity_id)
-
-    references = (
+    instructors = (
         (
             await session.execute(
-                select(WcsSourceReference).where(
-                    WcsSourceReference.source_id.in_(visible_ids)
-                )
+                select(WcsInstructor).where(WcsInstructor.merged_into_id.is_(None))
             )
         )
         .scalars()
         .all()
     )
-
-    instructor_ids = {a.instructor_id for a in attributions if a.instructor_id}
-    instructor_ids |= {d.instructor_id for d in definitions if d.instructor_id}
-
-    entities: list[WcsEntity] = []
-    if entity_ids_from_rows:
-        entities = (
-            (
-                await session.execute(
-                    select(WcsEntity).where(
-                        WcsEntity.id.in_(entity_ids_from_rows),
-                        WcsEntity.merged_into_id.is_(None),
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-
-    instructors: list[WcsInstructor] = []
-    if instructor_ids:
-        instructors = (
-            (
-                await session.execute(
-                    select(WcsInstructor).where(
-                        WcsInstructor.id.in_(instructor_ids),
-                        WcsInstructor.merged_into_id.is_(None),
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
 
     entity_alias_map = await _alias_map_for_entities(session, [e.id for e in entities])
     instructor_alias_map = await _alias_map_for_instructors(
