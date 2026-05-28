@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 from functools import lru_cache
+from typing import Annotated
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings.sources.types import NoDecode
 
 
 class Settings(BaseSettings):
@@ -65,6 +68,35 @@ class Settings(BaseSettings):
     WCS_QA_MAX_OUTPUT_TOKENS_DEFAULT: int = 8000
     WCS_QA_MAX_OUTPUT_TOKENS_LIMIT: int = 8192
     WCS_SITE_URL: str = "https://wcs.kaianolevine.com"
+
+    WCS_SERVICE_MACHINE_IDS: Annotated[list[str], NoDecode] = Field(
+        default_factory=list,
+        description=(
+            "Allowlist of Clerk machine subject ids (e.g. 'mch_xxx') recognized "
+            "as service callers. Service callers are accepted on endpoints gated "
+            "by require_wcs_service or require_wcs_admin_or_service. Configured "
+            "via Doppler / Railway env (comma-separated or JSON array)."
+        ),
+    )
+
+    @field_validator("WCS_SERVICE_MACHINE_IDS", mode="before")
+    @classmethod
+    def parse_wcs_service_machine_ids(cls, v: object) -> list[str]:
+        """Accept JSON list or comma-separated string from env."""
+        if v is None or v == "":
+            return []
+        if isinstance(v, list):
+            return [str(x).strip() for x in v if str(x).strip()]
+        if isinstance(v, str):
+            stripped = v.strip()
+            if stripped.startswith("["):
+                parsed = json.loads(stripped)
+                if not isinstance(parsed, list):
+                    msg = "WCS_SERVICE_MACHINE_IDS JSON value must be a list"
+                    raise ValueError(msg)
+                return [str(x).strip() for x in parsed if str(x).strip()]
+            return [part.strip() for part in v.split(",") if part.strip()]
+        return list(v)  # type: ignore[arg-type]
 
     @field_validator("GOOGLE_PRIVATE_KEY", mode="before")
     @classmethod

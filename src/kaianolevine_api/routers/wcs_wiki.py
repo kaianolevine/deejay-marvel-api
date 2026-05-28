@@ -10,7 +10,7 @@ from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner, require_wcs_admin
+from ..auth import get_current_owner, require_wcs_admin, require_wcs_admin_or_service
 from ..config import get_settings
 from ..database import get_db_session
 from ..schemas import (
@@ -244,26 +244,28 @@ async def get_source_admin(
 @router.get(
     "/wcs/wiki/export",
     response_model=Envelope[WcsWikiExportItem],
-    summary="Bulk export full corpus (admin-only)",
+    summary="Bulk export full corpus (admin or service)",
     description=(
-        "Returns the entire WCS corpus in one response, regardless of per-caller "
-        "visibility. Admin-only. Used by wiki-curator-cog to render the wiki as "
-        "a single bundled artifact. The endpoint's protection is the auth gate, "
-        "not per-user filtering."
+        "Returns the entire WCS corpus in one response, regardless of "
+        "per-caller visibility. Reachable by WCS admin users (for manual "
+        "exports / debugging) and by recognized service machines listed in "
+        "WCS_SERVICE_MACHINE_IDS (notably wiki-curator-cog). The endpoint's "
+        "protection is the auth gate; per-user filtering is not applied."
     ),
 )
 async def export_wiki(
-    _admin_id: str = Depends(require_wcs_admin),
+    caller_id: str = Depends(require_wcs_admin_or_service),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsWikiExportItem]:
-    """Return the full WCS corpus (admin-only, not visibility-filtered)."""
-    log.info("%s wiki export (admin) admin=%s", LOG_START, _admin_id)
+    """Return the full WCS corpus (admin or service, not visibility-filtered)."""
+    log.info("%s wiki export caller=%s", LOG_START, caller_id)
     settings = get_settings()
     data = await wiki_svc.export_wiki_corpus(session)
     log.info(
-        "%s wiki export entities=%d sources=%d",
+        "%s wiki export entities=%d sources=%d instructors=%d",
         LOG_SUCCESS,
         len(data.entities),
         len(data.sources),
+        len(data.instructors),
     )
     return success_envelope(data, count=1, total=1, version=settings.API_VERSION)

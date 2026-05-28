@@ -178,32 +178,7 @@ async def require_wcs_admin(
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> str:
-    """Ensures the caller is a WCS admin.
-
-    TODO(service-auth): introduce a separate ``require_wcs_service``
-    dependency (and a ``require_wcs_admin_or_service`` union) so
-    pipeline cogs using Clerk M2M tokens can access service
-    endpoints (like ``GET /v1/wcs/notes/all``) without being granted
-    user-level ``is_admin=true`` semantics. Promoting a machine to
-    ``is_admin=true`` would also grant it user-management permissions
-    (e.g., ``PATCH /wcs/admin/users``) that it has no business holding.
-
-    Today's stop-gap: ``/v1/wcs/notes/all`` accepts any authenticated
-    caller — see the TODO in ``routers/wcs_notes.py::list_all_notes``.
-    Tighten that back up when this lands.
-
-    Likely shape:
-      - new ``Settings`` field ``WCS_SERVICE_MACHINE_IDS: list[str]``
-        (allowlist of Clerk machine IDs like ``mch_xxx``)
-      - ``require_wcs_service`` accepts callers whose ``sub`` is in
-        that list
-      - ``require_wcs_admin_or_service`` is the union (admin user OR
-        recognized service machine)
-      - ``/v1/wcs/notes/all`` and other service-callable endpoints
-        switch to the union dependency
-      - admin-only endpoints (``PATCH /wcs/admin/users/{user_id}``,
-        etc.) stay on plain ``require_wcs_admin``
-    """
+    """Ensures the caller is a WCS admin (human user with ``is_admin=true``)."""
     result = await session.execute(
         select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
     )
@@ -211,3 +186,44 @@ async def require_wcs_admin(
     if profile is None or not profile.is_admin:
         raise api_error(403, "forbidden", "WCS admin access required")
     return owner_id
+
+
+async def require_wcs_service(
+    owner_id: str = Depends(get_current_owner),
+    settings: Settings = Depends(get_settings),
+) -> str:
+    """Ensures the caller is a recognized WCS service machine.
+
+    Accepts callers whose resolved sub (from Clerk M2M opaque-token
+    verification) is in WCS_SERVICE_MACHINE_IDS. Rejects user sessions
+    and unrecognized machines.
+
+    Machine identity is distinct from user identity — service callers
+    should not be promoted to ``is_admin=true`` on ``wcs_user_profiles``.
+    """
+    if owner_id in settings.WCS_SERVICE_MACHINE_IDS:
+        return owner_id
+    raise api_error(403, "forbidden", "WCS service caller required")
+
+
+async def require_wcs_admin_or_service(
+    owner_id: str = Depends(get_current_owner),
+    session: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings),
+) -> str:
+    """Accepts either an ``is_admin=true`` WCS admin user or a recognized service machine.
+
+    Used by endpoints reachable by human admins (debugging, manual ops) and
+    by pipeline cogs running as Clerk M2M machines.
+    """
+    if owner_id in settings.WCS_SERVICE_MACHINE_IDS:
+        return owner_id
+
+    result = await session.execute(
+        select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
+    )
+    profile = result.scalars().first()
+    if profile is not None and profile.is_admin:
+        return owner_id
+
+    raise api_error(403, "forbidden", "WCS admin or service caller required")
