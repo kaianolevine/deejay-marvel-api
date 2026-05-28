@@ -280,7 +280,10 @@ async def patch_wcs_note_default_visibility(
     _admin_id: str = Depends(require_wcs_admin),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteItem]:
-    """Set catalog default visibility for a specific WCS note."""
+    """Set catalog default visibility for a specific WCS note.
+
+    Reads _legacy_wcs_notes; superseded by PATCH /v1/wcs/admin/sources/{id}/visibility.
+    """
     settings = get_settings()
     result = await session.execute(select(DbNote).where(DbNote.id == note_id))
     note = result.scalars().first()
@@ -319,7 +322,10 @@ async def patch_wcs_note_admin(
     _admin_id: str = Depends(require_wcs_admin),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteItem]:
-    """Apply a partial admin update to a WCS note's editable fields."""
+    """Apply a partial admin update to a WCS note's editable fields.
+
+    Reads _legacy_wcs_notes; superseded by PATCH /v1/wcs/admin/sources/{id}.
+    """
     settings = get_settings()
     result = await session.execute(select(DbNote).where(DbNote.id == note_id))
     note = result.scalars().first()

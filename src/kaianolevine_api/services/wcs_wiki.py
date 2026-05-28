@@ -391,20 +391,50 @@ async def list_sources(
     return [_source_item(s) for s in rows], total or 0
 
 
+async def list_all_sources(
+    session: AsyncSession,
+    *,
+    limit: int,
+    offset: int,
+) -> tuple[list[WcsSourceItem], int]:
+    """Return every source regardless of visibility (admin catalog)."""
+    base = select(WcsSource)
+    total = (
+        await session.execute(select(func.count()).select_from(base.subquery()))
+    ).scalar_one()
+    rows = (
+        (
+            await session.execute(
+                base.order_by(
+                    WcsSource.session_date.desc().nullslast(),
+                    WcsSource.created_at.desc(),
+                )
+                .limit(limit)
+                .offset(offset)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [_source_item(s) for s in rows], total or 0
+
+
 async def get_source_view(
     session: AsyncSession,
     user_id: str,
     *,
     source_id: uuid.UUID,
+    bypass_visibility: bool = False,
 ) -> WcsSourceViewItem | None:
-    """Build the full wiki view for one source, gated by visibility for the user."""
+    """Build the full wiki view for one source, gated by visibility unless bypassed."""
     source = await session.get(WcsSource, source_id)
     if source is None:
         return None
 
-    visible_ids = await visible_source_ids_for_user(session, user_id)
-    if source_id not in visible_ids:
-        return None
+    if not bypass_visibility:
+        visible_ids = await visible_source_ids_for_user(session, user_id)
+        if source_id not in visible_ids:
+            return None
 
     attributions = (
         (
@@ -488,6 +518,37 @@ async def get_source_view(
         ],
         references=[WcsSourceReferenceItem.model_validate(r) for r in references],
     )
+
+
+async def patch_source_default_visible(
+    session: AsyncSession,
+    *,
+    source_id: uuid.UUID,
+    is_default_visible: bool,
+) -> WcsSourceItem | None:
+    """Set catalog default visibility on a source (flat column write)."""
+    source = await session.get(WcsSource, source_id)
+    if source is None:
+        return None
+    source.is_default_visible = is_default_visible
+    await session.flush()
+    return _source_item(source)
+
+
+async def patch_source_admin(
+    session: AsyncSession,
+    *,
+    source_id: uuid.UUID,
+    updates: dict,
+) -> WcsSourceItem | None:
+    """Apply a partial admin update to editable source metadata (flat column writes)."""
+    source = await session.get(WcsSource, source_id)
+    if source is None:
+        return None
+    for field, value in updates.items():
+        setattr(source, field, value)
+    await session.flush()
+    return _source_item(source)
 
 
 async def export_wiki_corpus(

@@ -88,18 +88,33 @@ async def test_private_source_denied_without_grant(db_session: AsyncSession) -> 
     assert await user_can_see_source(db_session, "viewer", source) is False
 
 
-async def test_admin_sees_all_visible_ids(db_session: AsyncSession) -> None:
+async def test_admin_without_grants_sees_only_default_visible(
+    db_session: AsyncSession,
+) -> None:
     await _seed_profiles(db_session)
     t1 = await _transcript(db_session)
     t2 = await _transcript(db_session)
-    s1 = WcsSource(owner_id="admin-user", transcript_id=t1)
-    s2 = WcsSource(owner_id="other", transcript_id=t2, is_default_visible=True)
-    db_session.add_all([s1, s2])
+    private = WcsSource(owner_id="admin-user", transcript_id=t1)
+    visible = WcsSource(owner_id="other", transcript_id=t2, is_default_visible=True)
+    db_session.add_all([private, visible])
     await db_session.commit()
 
     ids = await visible_source_ids_for_user(db_session, "admin-user")
-    assert s1.id in ids
-    assert s2.id in ids
+    assert visible.id in ids
+    assert private.id not in ids
+
+
+async def test_admin_without_grants_gets_empty_when_none_default_visible(
+    db_session: AsyncSession,
+) -> None:
+    await _seed_profiles(db_session)
+    t1 = await _transcript(db_session)
+    private = WcsSource(owner_id="admin-user", transcript_id=t1)
+    db_session.add(private)
+    await db_session.commit()
+
+    ids = await visible_source_ids_for_user(db_session, "admin-user")
+    assert ids == []
 
 
 async def test_viewer_visible_ids_default_and_grants(db_session: AsyncSession) -> None:

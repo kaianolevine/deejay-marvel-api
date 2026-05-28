@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from unittest.mock import AsyncMock
 
 import httpx
@@ -275,3 +276,90 @@ async def test_admin_endpoints_error_envelope_on_forbidden(stranger_client) -> N
     assert "error" in body
     assert "code" in body["error"]
     assert "message" in body["error"]
+
+
+async def test_patch_source_visibility_reflects_in_caller_list(client) -> None:
+    transcript_id = await _create_transcript(client)
+    create = await client.post(
+        "/v1/wcs/sources",
+        json=_source_payload(
+            transcript_id,
+            is_default_visible=False,
+            visibility="private",
+        ),
+    )
+    source_id = create.json()["data"]["id"]
+
+    original_verify = auth_mod.verify_clerk_jwt
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        headers={"Authorization": "Bearer stranger-token"},
+    ) as stranger:
+        before = await stranger.get("/v1/wcs/wiki/sources?limit=100")
+        assert source_id not in {s["id"] for s in before.json()["data"]}
+    auth_mod.verify_clerk_jwt = original_verify
+
+    patch = await client.patch(
+        f"/v1/wcs/admin/sources/{source_id}/visibility",
+        json={"is_default_visible": True},
+    )
+    assert patch.status_code == 200
+    assert patch.json()["data"]["is_default_visible"] is True
+
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        headers={"Authorization": "Bearer stranger-token"},
+    ) as stranger:
+        after = await stranger.get("/v1/wcs/wiki/sources?limit=100")
+        assert source_id in {s["id"] for s in after.json()["data"]}
+    auth_mod.verify_clerk_jwt = original_verify
+
+
+async def test_patch_source_admin_partial_update(client, source_id: str) -> None:
+    before = await client.get(f"/v1/wcs/wiki/admin/sources/{source_id}")
+    assert before.status_code == 200
+    original = before.json()["data"]["source"]
+
+    patch = await client.patch(
+        f"/v1/wcs/admin/sources/{source_id}",
+        json={"title": "Admin retitled"},
+    )
+    assert patch.status_code == 200
+    data = patch.json()["data"]
+    assert data["title"] == "Admin retitled"
+    assert data["session_type"] == original["session_type"]
+    assert data["instructors_raw"] == original["instructors_raw"]
+
+
+async def test_patch_source_endpoints_forbid_non_admin(
+    stranger_client, source_id: str
+) -> None:
+    vis = await stranger_client.patch(
+        f"/v1/wcs/admin/sources/{source_id}/visibility",
+        json={"is_default_visible": True},
+    )
+    assert vis.status_code == 403
+    meta = await stranger_client.patch(
+        f"/v1/wcs/admin/sources/{source_id}",
+        json={"title": "nope"},
+    )
+    assert meta.status_code == 403
+
+
+async def test_patch_source_endpoints_404_missing(client) -> None:
+    missing = uuid.uuid4()
+    vis = await client.patch(
+        f"/v1/wcs/admin/sources/{missing}/visibility",
+        json={"is_default_visible": True},
+    )
+    assert vis.status_code == 404
+    meta = await client.patch(
+        f"/v1/wcs/admin/sources/{missing}",
+        json={"title": "nope"},
+    )
+    assert meta.status_code == 404

@@ -10,7 +10,7 @@ from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import get_current_owner, require_wcs_admin
 from ..config import get_settings
 from ..database import get_db_session
 from ..schemas import (
@@ -189,6 +189,56 @@ async def list_sources(
     return success_envelope(
         items, count=len(items), total=total, version=settings.API_VERSION
     )
+
+
+@router.get(
+    "/wcs/wiki/admin/sources",
+    response_model=Envelope[list[WcsSourceItem]],
+    summary="List all sources (admin)",
+    description=(
+        "Returns all sources regardless of visibility. Admin-only; substrate "
+        "equivalent of legacy GET /v1/wcs/notes/all."
+    ),
+)
+async def list_all_sources_admin(
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    _admin_id: str = Depends(require_wcs_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> Envelope[list[WcsSourceItem]]:
+    """Return every source regardless of visibility (admin catalog)."""
+    settings = get_settings()
+    items, total = await wiki_svc.list_all_sources(session, limit=limit, offset=offset)
+    return success_envelope(
+        items, count=len(items), total=total, version=settings.API_VERSION
+    )
+
+
+@router.get(
+    "/wcs/wiki/admin/sources/{source_id}",
+    response_model=Envelope[WcsSourceViewItem],
+    summary="Get one source by id (admin)",
+    description=(
+        "Returns the full wiki view for any source regardless of visibility. "
+        "Admin-only."
+    ),
+)
+async def get_source_admin(
+    source_id: uuid.UUID,
+    _admin_id: str = Depends(require_wcs_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> Envelope[WcsSourceViewItem]:
+    """Return the full wiki view for one source, bypassing visibility checks."""
+    settings = get_settings()
+    view = await wiki_svc.get_source_view(
+        session,
+        _admin_id,
+        source_id=source_id,
+        bypass_visibility=True,
+    )
+    if view is None:
+        raise api_error(404, "source_not_found", "Source not found")
+    return success_envelope(view, count=1, total=1, version=settings.API_VERSION)
 
 
 @router.get(

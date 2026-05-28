@@ -22,6 +22,9 @@ from ..schemas import (
     WcsGapItem,
     WcsNameCorrectionCreate,
     WcsRecomposeResult,
+    WcsSourceAdminPatch,
+    WcsSourceDefaultVisiblePatch,
+    WcsSourceItem,
     WcsSourceMetadataCorrectionCreate,
     WcsTechniqueRequirementAdditionCreate,
     api_error,
@@ -32,6 +35,60 @@ from ..services import wcs_wiki as wiki_svc
 
 router = APIRouter()
 log = logger_mod.get_logger()
+
+
+@router.patch(
+    "/wcs/admin/sources/{source_id}/visibility",
+    response_model=Envelope[WcsSourceItem],
+    summary="Set default source visibility",
+    description="Admin-only. Controls catalog default visibility (is_default_visible).",
+)
+async def patch_source_default_visibility(
+    source_id: uuid.UUID,
+    body: WcsSourceDefaultVisiblePatch,
+    _admin_id: str = Depends(require_wcs_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> Envelope[WcsSourceItem]:
+    """Set catalog default visibility for a specific WCS source."""
+    settings = get_settings()
+    item = await wiki_svc.patch_source_default_visible(
+        session,
+        source_id=source_id,
+        is_default_visible=body.is_default_visible,
+    )
+    if item is None:
+        raise api_error(404, "source_not_found", "Source not found")
+    await session.commit()
+    return success_envelope(item, count=1, total=1, version=settings.API_VERSION)
+
+
+@router.patch(
+    "/wcs/admin/sources/{source_id}",
+    response_model=Envelope[WcsSourceItem],
+    summary="Update WCS source metadata (admin)",
+    description=(
+        "Admin-only partial update of editable source fields: session_date, "
+        "session_type, title, organization, students_raw, instructors_raw, and "
+        "is_default_visible. Fields omitted from the request body are left "
+        "untouched. Returns the refreshed source."
+    ),
+)
+async def patch_source_admin(
+    source_id: uuid.UUID,
+    body: WcsSourceAdminPatch,
+    _admin_id: str = Depends(require_wcs_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> Envelope[WcsSourceItem]:
+    """Apply a partial admin update to a WCS source's editable fields."""
+    settings = get_settings()
+    updates = body.model_dump(exclude_unset=True)
+    item = await wiki_svc.patch_source_admin(
+        session, source_id=source_id, updates=updates
+    )
+    if item is None:
+        raise api_error(404, "source_not_found", "Source not found")
+    await session.commit()
+    return success_envelope(item, count=1, total=1, version=settings.API_VERSION)
 
 
 @router.post(

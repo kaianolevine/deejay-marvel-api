@@ -192,6 +192,129 @@ async def test_entity_not_found(client) -> None:
     assert resp.status_code == 404
 
 
+async def test_admin_list_sources_returns_all(client) -> None:
+    transcript_id = await _create_transcript(client)
+    private_resp = await client.post(
+        "/v1/wcs/sources",
+        json=_source_payload(
+            transcript_id,
+            is_default_visible=False,
+            visibility="private",
+            title="Private lesson",
+        ),
+    )
+    assert private_resp.status_code == 200
+    private_id = private_resp.json()["data"]["id"]
+
+    public_resp = await client.post(
+        "/v1/wcs/transcripts",
+        json={
+            "raw_text": "Public lesson transcript.",
+            "source_type": "plaud",
+            "source_filename": "public-lesson.txt",
+            "drive_file_id": "drive-public-lesson",
+        },
+    )
+    assert public_resp.status_code == 201
+    public_tid = public_resp.json()["data"]["id"]
+    public_resp = await client.post(
+        "/v1/wcs/sources",
+        json=_source_payload(
+            public_tid,
+            is_default_visible=True,
+            title="Public lesson",
+        ),
+    )
+    assert public_resp.status_code == 200
+    public_id = public_resp.json()["data"]["id"]
+
+    admin_list = await client.get("/v1/wcs/wiki/admin/sources?limit=100")
+    assert admin_list.status_code == 200
+    admin_ids = {s["id"] for s in admin_list.json()["data"]}
+    assert private_id in admin_ids
+    assert public_id in admin_ids
+
+    original_verify = auth_mod.verify_clerk_jwt
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        headers={"Authorization": "Bearer stranger-token"},
+    ) as stranger:
+        forbidden = await stranger.get("/v1/wcs/wiki/admin/sources")
+        assert forbidden.status_code == 403
+    auth_mod.verify_clerk_jwt = original_verify
+
+
+async def test_admin_get_private_source(client) -> None:
+    transcript_id = await _create_transcript(client)
+    create = await client.post(
+        "/v1/wcs/sources",
+        json=_source_payload(
+            transcript_id,
+            is_default_visible=False,
+            visibility="private",
+        ),
+    )
+    source_id = create.json()["data"]["id"]
+
+    admin_resp = await client.get(f"/v1/wcs/wiki/admin/sources/{source_id}")
+    assert admin_resp.status_code == 200
+    assert admin_resp.json()["data"]["source"]["id"] == source_id
+
+    original_verify = auth_mod.verify_clerk_jwt
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        headers={"Authorization": "Bearer stranger-token"},
+    ) as stranger:
+        forbidden = await stranger.get(f"/v1/wcs/wiki/admin/sources/{source_id}")
+        assert forbidden.status_code == 403
+    auth_mod.verify_clerk_jwt = original_verify
+
+
+async def test_admin_caller_scoped_list_matches_regular_user(client) -> None:
+    """Admin on GET /wiki/sources sees only default-visible sources (no bypass)."""
+    transcript_id = await _create_transcript(client)
+    private_resp = await client.post(
+        "/v1/wcs/sources",
+        json=_source_payload(
+            transcript_id,
+            is_default_visible=False,
+            visibility="private",
+        ),
+    )
+    assert private_resp.status_code == 200
+    private_id = private_resp.json()["data"]["id"]
+
+    public_resp = await client.post(
+        "/v1/wcs/transcripts",
+        json={
+            "raw_text": "Another transcript.",
+            "source_type": "plaud",
+            "source_filename": "visible-lesson.txt",
+            "drive_file_id": "drive-visible-lesson",
+        },
+    )
+    assert public_resp.status_code == 201
+    public_tid = public_resp.json()["data"]["id"]
+    public_resp = await client.post(
+        "/v1/wcs/sources",
+        json=_source_payload(public_tid, is_default_visible=True),
+    )
+    assert public_resp.status_code == 200
+    public_id = public_resp.json()["data"]["id"]
+
+    resp = await client.get("/v1/wcs/wiki/sources?limit=100")
+    assert resp.status_code == 200
+    ids = {s["id"] for s in resp.json()["data"]}
+    assert public_id in ids
+    assert private_id not in ids
+
+
 async def test_visibility_filters_private_source(client, async_engine) -> None:
     transcript_id = await _create_transcript(client)
     create = await client.post(

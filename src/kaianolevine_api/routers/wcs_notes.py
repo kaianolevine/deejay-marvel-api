@@ -221,7 +221,10 @@ async def list_notes(
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsNoteItem]]:
-    """List notes visible to the authenticated user."""
+    """List notes visible to the authenticated user.
+
+    Reads _legacy_wcs_notes; superseded by GET /v1/wcs/wiki/sources.
+    """
     settings = get_settings()
 
     # Standard user filtering — no admin bypass.
@@ -298,6 +301,8 @@ async def list_all_notes(
     Clerk M2M tokens and aren't naturally "admins" in the user-profile
     sense; promoting machines to ``is_admin=true`` would also grant
     them user-management permissions they shouldn't have.
+
+    Reads _legacy_wcs_notes; superseded by GET /v1/wcs/wiki/admin/sources.
     """
     settings = get_settings()
 
@@ -338,7 +343,10 @@ async def get_note(
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteItem]:
-    """Return one note when the caller has visibility access."""
+    """Return one note when the caller has visibility access.
+
+    Reads _legacy_wcs_notes; superseded by GET /v1/wcs/wiki/sources/{id}.
+    """
     settings = get_settings()
 
     result = await session.execute(select(DbNote).where(DbNote.id == note_id))
@@ -370,7 +378,10 @@ async def patch_note(
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteItem]:
-    """Update user-facing visibility for one owned note."""
+    """Update user-facing visibility for one owned note.
+
+    Reads _legacy_wcs_notes; superseded by substrate wiki/admin endpoints.
+    """
     settings = get_settings()
 
     result = await session.execute(

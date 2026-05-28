@@ -1156,6 +1156,47 @@ class WcsInstructorItem(BaseModel):
     )
 
 
+class WcsSourceDefaultVisiblePatch(BaseModel):
+    """PATCH /v1/wcs/admin/sources/{source_id}/visibility — default catalog visibility."""
+
+    is_default_visible: bool = Field(
+        ..., description="Semantic value for is default visible."
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class WcsSourceAdminPatch(BaseModel):
+    """PATCH /v1/wcs/admin/sources/{source_id} — admin partial-update of editable fields.
+
+    Every field is optional; only provided fields are applied. Unset fields are
+    left untouched so callers can patch a single value (e.g. just the title).
+    """
+
+    session_date: dt.date | None = Field(
+        default=None, description="Date of the lesson/class session."
+    )
+    session_type: str | None = Field(
+        default=None, description="Session type for this WCS source."
+    )
+    title: str | None = Field(default=None, description="Title of the source.")
+    organization: str | None = Field(
+        default=None, description="Organization associated with the session."
+    )
+    students_raw: list[str] | None = Field(
+        default=None, description="Students who attended the session."
+    )
+    instructors_raw: list[str] | None = Field(
+        default=None, description="Instructors who taught the session."
+    )
+    is_default_visible: bool | None = Field(
+        default=None,
+        description="Whether this source is visible to all signed-in users by default.",
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class WcsSourceItem(BaseModel):
     """Source row for API responses."""
 
