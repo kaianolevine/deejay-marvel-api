@@ -29,7 +29,7 @@ async def seed_dev_owner_wcs_admin(reset_db, async_engine) -> None:
 @pytest.fixture
 async def stranger_client(client):  # noqa: ARG001
     original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
     async with httpx.ASGITransport(app=app) as transport:
         async with httpx.AsyncClient(
             transport=transport,
@@ -291,7 +291,7 @@ async def test_patch_source_visibility_reflects_in_caller_list(client) -> None:
     source_id = create.json()["data"]["id"]
 
     original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -309,7 +309,7 @@ async def test_patch_source_visibility_reflects_in_caller_list(client) -> None:
     assert patch.status_code == 200
     assert patch.json()["data"]["is_default_visible"] is True
 
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",

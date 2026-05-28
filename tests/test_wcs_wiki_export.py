@@ -1,4 +1,4 @@
-"""Tests for admin-or-service full-corpus wiki export."""
+"""Tests for cog-only full-corpus wiki export."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from kaianolevine_api import auth as auth_mod
-from kaianolevine_api.config import get_settings
 from kaianolevine_api.main import app
 from kaianolevine_api.models import WcsEntity, WcsSource, WcsTranscript
 from kaianolevine_api.services import wcs_wiki as wiki_svc
@@ -91,10 +90,18 @@ async def test_export_wiki_corpus_returns_full_database(
     assert len(export.entities) == db_entity_count
 
 
-async def test_export_forbidden_for_non_admin_non_service(client) -> None:
-    get_settings.cache_clear()
+async def test_export_forbidden_for_jwt_caller(client) -> None:
+    """User session JWT (including admin) cannot call the bulk export."""
     original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("dev-owner", "jwt"))
+    resp = await client.get("/v1/wcs/wiki/export")
+    auth_mod.verify_clerk_jwt = original_verify
+    assert resp.status_code == 403
+
+
+async def test_export_forbidden_for_unauthenticated_stranger() -> None:
+    original_verify = auth_mod.verify_clerk_jwt
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -104,16 +111,9 @@ async def test_export_forbidden_for_non_admin_non_service(client) -> None:
         resp = await stranger.get("/v1/wcs/wiki/export")
         assert resp.status_code == 403
     auth_mod.verify_clerk_jwt = original_verify
-    get_settings.cache_clear()
 
 
-async def test_export_service_machine_gets_full_corpus(
-    client, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    get_settings.cache_clear()
-    monkeypatch.setenv("WCS_SERVICE_MACHINE_IDS", "mch_wiki-cog")
-    get_settings.cache_clear()
-
+async def test_export_opaque_cog_gets_full_corpus(client) -> None:
     transcript_id = await _create_transcript(client)
     create = await client.post(
         "/v1/wcs/sources",
@@ -121,44 +121,23 @@ async def test_export_service_machine_gets_full_corpus(
             transcript_id,
             is_default_visible=False,
             visibility="private",
-            title="Service export lesson",
+            title="Cog export lesson",
         ),
     )
     assert create.status_code == 200
     private_id = create.json()["data"]["id"]
 
     original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="mch_wiki-cog")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("mch_wiki-cog", "opaque"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
-        headers={"Authorization": "Bearer machine-token"},
-    ) as machine:
-        resp = await machine.get("/v1/wcs/wiki/export")
+        headers={"Authorization": "Bearer opaque-machine-token"},
+    ) as cog:
+        resp = await cog.get("/v1/wcs/wiki/export")
     auth_mod.verify_clerk_jwt = original_verify
-    get_settings.cache_clear()
 
-    assert resp.status_code == 200
-    source_ids = {s["id"] for s in resp.json()["data"]["sources"]}
-    assert private_id in source_ids
-
-
-async def test_export_includes_private_source_for_admin(client) -> None:
-    transcript_id = await _create_transcript(client)
-    create = await client.post(
-        "/v1/wcs/sources",
-        json=_source_payload(
-            transcript_id,
-            is_default_visible=False,
-            visibility="private",
-            title="Export private lesson",
-        ),
-    )
-    assert create.status_code == 200
-    private_id = create.json()["data"]["id"]
-
-    resp = await client.get("/v1/wcs/wiki/export")
     assert resp.status_code == 200
     source_ids = {s["id"] for s in resp.json()["data"]["sources"]}
     assert private_id in source_ids

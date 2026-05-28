@@ -183,7 +183,10 @@ async def test_get_source_view(client, seeded_source) -> None:
 
 
 async def test_export_shape(client, seeded_source) -> None:
+    original_verify = auth_mod.verify_clerk_jwt
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("mch_wiki-cog", "opaque"))
     resp = await client.get("/v1/wcs/wiki/export")
+    auth_mod.verify_clerk_jwt = original_verify
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert "entities" in data
@@ -246,7 +249,7 @@ async def test_admin_list_sources_returns_all(client) -> None:
     assert public_id in admin_ids
 
     original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -275,7 +278,7 @@ async def test_admin_get_private_source(client) -> None:
     assert admin_resp.json()["data"]["source"]["id"] == source_id
 
     original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -339,7 +342,7 @@ async def test_visibility_filters_private_source(client, async_engine) -> None:
     source_id = create.json()["data"]["id"]
 
     original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
     async with async_engine.begin() as conn:
         await conn.execute(
             text(
@@ -357,5 +360,5 @@ async def test_visibility_filters_private_source(client, async_engine) -> None:
         resp = await stranger.get(f"/v1/wcs/wiki/sources/{source_id}")
         assert resp.status_code == 404
         export = await stranger.get("/v1/wcs/wiki/export")
-        assert export.status_code == 403
+        assert export.status_code == 403  # JWT callers cannot bulk-export
     auth_mod.verify_clerk_jwt = original_verify

@@ -27,7 +27,7 @@ async def seed_dev_owner_wcs_admin(reset_db, async_engine) -> None:
 @pytest.fixture
 async def stranger_client(client):  # noqa: ARG001 — ensures DB override is active
     original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="stranger-user")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,

@@ -77,7 +77,7 @@ async def client(async_engine) -> AsyncIterator[httpx.AsyncClient]:
             yield session
 
     original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value="dev-owner")
+    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("dev-owner", "jwt"))
 
     app.dependency_overrides[get_db_session] = override_get_db_session
 

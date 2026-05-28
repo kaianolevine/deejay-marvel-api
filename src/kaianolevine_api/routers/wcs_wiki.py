@@ -10,7 +10,7 @@ from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner, require_wcs_admin, require_wcs_admin_or_service
+from ..auth import get_current_owner, require_wcs_admin, require_wcs_service
 from ..config import get_settings
 from ..database import get_db_session
 from ..schemas import (
@@ -244,20 +244,21 @@ async def get_source_admin(
 @router.get(
     "/wcs/wiki/export",
     response_model=Envelope[WcsWikiExportItem],
-    summary="Bulk export full corpus (admin or service)",
+    summary="Bulk export full corpus (cog-only)",
     description=(
         "Returns the entire WCS corpus in one response, regardless of "
-        "per-caller visibility. Reachable by WCS admin users (for manual "
-        "exports / debugging) and by recognized service machines listed in "
-        "WCS_SERVICE_MACHINE_IDS (notably wiki-curator-cog). The endpoint's "
-        "protection is the auth gate; per-user filtering is not applied."
+        "per-caller visibility. Cog-only: requires a Clerk M2M opaque "
+        "token (the shared machine secret distributed via Doppler). "
+        "The endpoint's protection is the token-type gate; per-user "
+        "filtering is not applied. Used by wiki-curator-cog to render "
+        "the wiki as a single bundled artifact."
     ),
 )
 async def export_wiki(
-    caller_id: str = Depends(require_wcs_admin_or_service),
+    caller_id: str = Depends(require_wcs_service),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsWikiExportItem]:
-    """Return the full WCS corpus (admin or service, not visibility-filtered)."""
+    """Return the full WCS corpus (cog-only, not visibility-filtered)."""
     log.info("%s wiki export caller=%s", LOG_START, caller_id)
     settings = get_settings()
     data = await wiki_svc.export_wiki_corpus(session)

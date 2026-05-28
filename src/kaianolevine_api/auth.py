@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 import jwt
@@ -36,6 +36,8 @@ from .models import WcsUserProfile
 from .schemas import api_error
 
 logger = get_logger()
+
+TokenKind = Literal["jwt", "opaque"]
 
 # JWKS document cache: url -> (monotonic_expiry, jwks_json). TTL 5 minutes.
 _jwks_doc_cache: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -134,17 +136,27 @@ async def _verify_opaque_token(token: str, settings: Settings) -> str | None:
         return None
 
 
-async def verify_clerk_jwt(token: str, settings: Settings) -> str | None:
+async def verify_clerk_jwt(
+    token: str, settings: Settings
+) -> tuple[str, TokenKind] | None:
     """
     Verify a Clerk token — either an RS256 JWT (session/M2M JWT) or an
-    M2M opaque token. Returns the ``sub`` claim on success, or None.
+    M2M opaque token. Returns (sub, kind) on success, where kind is
+    "jwt" for an RS256-verified token (a user session or M2M JWT) and
+    "opaque" for an M2M opaque token verified via Clerk's BAPI. Returns
+    None on verification failure.
+
+    The kind discriminator is what downstream auth dependencies use to
+    distinguish service callers (cogs, presenting opaque M2M tokens)
+    from user sessions (presenting RS256 JWTs).
     """
     if not settings.CLERK_JWKS_URL or not settings.CLERK_ISSUER:
         return None
 
     # Opaque tokens have no dots; JWTs have exactly two.
     if token.count(".") != 2:
-        return await _verify_opaque_token(token, settings)
+        sub = await _verify_opaque_token(token, settings)
+        return (sub, "opaque") if sub else None
 
     try:
         jwks_doc = await _fetch_jwks_document(settings.CLERK_JWKS_URL)
@@ -153,32 +165,61 @@ async def verify_clerk_jwt(token: str, settings: Settings) -> str | None:
             with_log_prefix(LOG_WARNING, f"JWKS document fetch failed: {exc!r}")
         )
         return None
-    return await asyncio.to_thread(_decode_clerk_jwt_sync, token, settings, jwks_doc)
+    sub = await asyncio.to_thread(_decode_clerk_jwt_sync, token, settings, jwks_doc)
+    return (sub, "jwt") if sub else None
+
+
+async def _resolve_caller(
+    authorization: str | None,
+    settings: Settings,
+) -> tuple[str, TokenKind]:
+    """Resolve the caller from the Authorization header, returning (sub, kind).
+
+    Raises 401 if missing or invalid.
+    """
+    if authorization:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and token:
+            result = await verify_clerk_jwt(token, settings)
+            if result is not None:
+                return result
+
+    raise api_error(401, "unauthorized", "Valid Bearer token required")
 
 
 async def get_current_owner(
     authorization: str | None = Header(default=None, alias="Authorization"),
     settings: Settings = Depends(get_settings),
 ) -> str:
-    """
-    Resolves owner identity from a Clerk token (JWT or opaque M2M).
-    Raises 401 if the token is missing or invalid.
-    """
-    if authorization:
-        scheme, _, token = authorization.partition(" ")
-        if scheme.lower() == "bearer" and token:
-            sub = await verify_clerk_jwt(token, settings)
-            if sub:
-                return sub
+    """Return the resolved sub for the authenticated caller.
 
-    raise api_error(401, "unauthorized", "Valid Bearer token required")
+    Used by per-caller endpoints that do not need to distinguish user
+    from machine identity.
+    """
+    sub, _kind = await _resolve_caller(authorization, settings)
+    return sub
+
+
+async def get_current_caller(
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    settings: Settings = Depends(get_settings),
+) -> tuple[str, TokenKind]:
+    """Return (sub, kind) for the authenticated caller.
+
+    Used by dependencies that need to distinguish user from service identity.
+    """
+    return await _resolve_caller(authorization, settings)
 
 
 async def require_wcs_admin(
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> str:
-    """Ensures the caller is a WCS admin (human user with ``is_admin=true``)."""
+    """Ensures the caller is a WCS admin (human user with ``is_admin=true``).
+
+    Service callers (cogs) use ``require_wcs_service``; this dependency is
+    for human-admin endpoints only.
+    """
     result = await session.execute(
         select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
     )
@@ -189,41 +230,21 @@ async def require_wcs_admin(
 
 
 async def require_wcs_service(
-    owner_id: str = Depends(get_current_owner),
-    settings: Settings = Depends(get_settings),
+    caller: tuple[str, TokenKind] = Depends(get_current_caller),
 ) -> str:
-    """Ensures the caller is a recognized WCS service machine.
+    """Ensures the caller authenticated via a Clerk M2M opaque token — a cog.
 
-    Accepts callers whose resolved sub (from Clerk M2M opaque-token
-    verification) is in WCS_SERVICE_MACHINE_IDS. Rejects user sessions
-    and unrecognized machines.
+    In this ecosystem, cogs share a single Clerk M2M machine secret
+    distributed via Doppler. Possession of that secret is the cog
+    identity claim. Any caller presenting a valid Clerk M2M opaque
+    token is, by construction, a cog. Human user sessions arrive as
+    RS256 JWTs (a distinct Clerk verification path) and are rejected
+    by this dependency.
 
-    Machine identity is distinct from user identity — service callers
-    should not be promoted to ``is_admin=true`` on ``wcs_user_profiles``.
+    Returns the machine subject. Raises 403 if the caller is a user
+    session rather than a machine.
     """
-    if owner_id in settings.WCS_SERVICE_MACHINE_IDS:
-        return owner_id
-    raise api_error(403, "forbidden", "WCS service caller required")
-
-
-async def require_wcs_admin_or_service(
-    owner_id: str = Depends(get_current_owner),
-    session: AsyncSession = Depends(get_db_session),
-    settings: Settings = Depends(get_settings),
-) -> str:
-    """Accepts either an ``is_admin=true`` WCS admin user or a recognized service machine.
-
-    Used by endpoints reachable by human admins (debugging, manual ops) and
-    by pipeline cogs running as Clerk M2M machines.
-    """
-    if owner_id in settings.WCS_SERVICE_MACHINE_IDS:
-        return owner_id
-
-    result = await session.execute(
-        select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
-    )
-    profile = result.scalars().first()
-    if profile is not None and profile.is_admin:
-        return owner_id
-
-    raise api_error(403, "forbidden", "WCS admin or service caller required")
+    sub, kind = caller
+    if kind != "opaque":
+        raise api_error(403, "forbidden", "WCS service (cog) caller required")
+    return sub
