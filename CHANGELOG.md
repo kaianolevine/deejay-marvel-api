@@ -1,3 +1,10 @@
+# [1.40.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.39.0...v1.40.0) (2026-05-28)
+
+
+### Features
+
+* substrate admin read + mutation endpoints; remove admin visibility bypass ([8ea1d05](https://github.com/mini-app-polis/api-kaianolevine-com/commit/8ea1d0521596bc6e71fe23d9fb58f6803484d428))
+
 # [1.39.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.38.1...v1.39.0) (2026-05-27)
 
 
