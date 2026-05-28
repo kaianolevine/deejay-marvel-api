@@ -1025,6 +1025,9 @@ class WcsSourceAttributionItem(BaseModel):
     source_id: uuid.UUID = Field(
         ..., description="Identifier of the WCS source this row belongs to."
     )
+    entity_id: uuid.UUID = Field(
+        ..., description="Identifier of the WCS entity this attribution is about."
+    )
     instructor_id: uuid.UUID | None = Field(
         ..., description="Identifier of the WCS instructor."
     )

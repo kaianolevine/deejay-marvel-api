@@ -87,6 +87,9 @@ async def test_get_entity_views(
     body = resp.json()["data"]
     assert body["entity"]["slug"] == slug_key
     assert isinstance(body["attributions"], list)
+    entity_id = body["entity"]["id"]
+    for attr in body["attributions"]:
+        assert attr["entity_id"] == entity_id
 
 
 async def test_list_concepts_paginated(client, seeded_source) -> None:
@@ -168,6 +171,11 @@ async def test_get_source_view(client, seeded_source) -> None:
     data = resp.json()["data"]
     assert data["source"]["id"] == source_id
     assert len(data["attributions"]) >= 1
+    frame = await client.get("/v1/wcs/wiki/concepts/frame")
+    frame_id = frame.json()["data"]["entity"]["id"]
+    frame_attrs = [a for a in data["attributions"] if a["entity_id"] == frame_id]
+    assert len(frame_attrs) >= 1
+    assert frame_attrs[0]["entity_id"] == frame_id
     refs = data["references"]
     assert len(refs) >= 1
     assert refs[0]["referenced_name"] == "Ben Morris"
@@ -182,6 +190,9 @@ async def test_export_shape(client, seeded_source) -> None:
     assert "attributions" in data
     assert "exported_at" in data
     assert len(data["entities"]) >= 1
+    entity_ids = {e["id"] for e in data["entities"]}
+    for attr in data["attributions"]:
+        assert attr["entity_id"] in entity_ids
     if data["references"]:
         assert "referenced_name" in data["references"][0]
         assert "instructor_id" not in data["references"][0]
