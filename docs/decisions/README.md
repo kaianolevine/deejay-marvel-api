@@ -35,4 +35,12 @@ What becomes easier or more difficult to do because of this change?
 
 ## Index
 
-No decisions recorded yet.
+| ADR | Title | Status |
+| --- | ----- | ------ |
+| [0001](./ADR-0001-migrations-raw-sql.md) | Migrations are raw SQL | Accepted |
+| [0002](./ADR-0002-wcs-entity-substrate.md) | WCS entity substrate | Accepted |
+| [0003](./ADR-0003-versioned-extractions-and-corrections.md) | Versioned extractions and corrections | Accepted |
+| [0004](./ADR-0004-rebuild-wcs-corpus.md) | Rebuild WCS corpus from scratch | Accepted |
+| [0005](./ADR-0005-automated-migration-application.md) | Automated migration application | Accepted |
+| [0006](./ADR-0006-operator-direct-edits.md) | Operator direct edits on canonical state | Accepted |
+| [0007](./ADR-0007-extraction-rows-null-instructor.md) | Extraction rows write NULL instructor_id; co-instructor derived at read time | Accepted |
