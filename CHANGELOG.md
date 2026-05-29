@@ -1,3 +1,10 @@
+## [1.42.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.42.0...v1.42.1) (2026-05-29)
+
+
+### Bug Fixes
+
+* **composition:** write one extraction row per item; derive co-taught attribution at read time ([b0aff1d](https://github.com/mini-app-polis/api-kaianolevine-com/commit/b0aff1d6478a8b45b697fd2379d9ad937dea613c))
+
 # [1.42.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.41.0...v1.42.0) (2026-05-29)
 
 
