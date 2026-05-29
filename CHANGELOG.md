@@ -1,3 +1,10 @@
+# [1.42.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.41.0...v1.42.0) (2026-05-29)
+
+
+### Features
+
+* **wcs:** include resolved entity/instructor names in source view response ([e1e893a](https://github.com/mini-app-polis/api-kaianolevine-com/commit/e1e893a0dc0e95de8f8eda20c54bfcbd9fc2dd6a))
+
 # [1.41.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.40.1...v1.41.0) (2026-05-28)
 
 
