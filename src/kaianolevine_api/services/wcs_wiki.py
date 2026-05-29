@@ -419,6 +419,104 @@ async def list_all_sources(
     return [_source_item(s) for s in rows], total or 0
 
 
+def _attribution_item(row: WcsSourceAttribution) -> WcsSourceAttributionItem:
+    entity = row.entity
+    instructor = row.instructor
+    return WcsSourceAttributionItem(
+        id=row.id,
+        source_id=row.source_id,
+        entity_id=row.entity_id,
+        instructor_id=row.instructor_id,
+        attribution_kind=row.attribution_kind,
+        prose=row.prose,
+        raw_term=row.raw_term,
+        position=row.position,
+        drill_goal=row.drill_goal,
+        drill_steps=row.drill_steps,
+        mistake_text=row.mistake_text,
+        correction_text=row.correction_text,
+        origin=row.origin,
+        entity_slug=entity.slug if entity else "",
+        entity_name=entity.canonical_name if entity else "",
+        entity_kind=entity.kind if entity else "",
+        instructor_slug=instructor.slug if instructor else None,
+        instructor_name=instructor.canonical_name if instructor else None,
+    )
+
+
+def _definition_item(row: WcsEntityDefinition) -> WcsEntityDefinitionItem:
+    entity = row.entity
+    instructor = row.instructor
+    return WcsEntityDefinitionItem(
+        id=row.id,
+        entity_id=row.entity_id,
+        source_id=row.source_id,
+        instructor_id=row.instructor_id,
+        term=row.term,
+        definition=row.definition,
+        position=row.position,
+        origin=row.origin,
+        entity_slug=entity.slug if entity else "",
+        entity_name=entity.canonical_name if entity else "",
+        entity_kind=entity.kind if entity else "",
+        instructor_slug=instructor.slug if instructor else None,
+        instructor_name=instructor.canonical_name if instructor else None,
+    )
+
+
+def _relation_item(row: WcsEntityRelation) -> WcsEntityRelationItem:
+    fr = row.from_entity
+    to = row.to_entity
+    return WcsEntityRelationItem(
+        id=row.id,
+        from_entity_id=row.from_entity_id,
+        to_entity_id=row.to_entity_id,
+        relation_kind=row.relation_kind,
+        source_id=row.source_id,
+        prose=row.prose,
+        origin=row.origin,
+        from_entity_slug=fr.slug if fr else "",
+        from_entity_name=fr.canonical_name if fr else "",
+        from_entity_kind=fr.kind if fr else "",
+        to_entity_slug=to.slug if to else "",
+        to_entity_name=to.canonical_name if to else "",
+        to_entity_kind=to.kind if to else "",
+    )
+
+
+def _drill_purpose_item(row: WcsDrillPurpose) -> WcsDrillPurposeItem:
+    drill = row.drill_entity
+    return WcsDrillPurposeItem(
+        id=row.id,
+        drill_entity_id=row.drill_entity_id,
+        source_id=row.source_id,
+        skill_name=row.skill_name,
+        skill_slug=row.skill_slug,
+        prose=row.prose,
+        focus_context=row.focus_context,
+        origin=row.origin,
+        drill_entity_slug=drill.slug if drill else "",
+        drill_entity_name=drill.canonical_name if drill else "",
+    )
+
+
+def _technique_requirement_item(
+    row: WcsTechniqueRequirement,
+) -> WcsTechniqueRequirementItem:
+    tech = row.technique_entity
+    return WcsTechniqueRequirementItem(
+        id=row.id,
+        technique_entity_id=row.technique_entity_id,
+        source_id=row.source_id,
+        skill_name=row.skill_name,
+        skill_slug=row.skill_slug,
+        prose=row.prose,
+        origin=row.origin,
+        technique_entity_slug=tech.slug if tech else "",
+        technique_entity_name=tech.canonical_name if tech else "",
+    )
+
+
 async def get_source_view(
     session: AsyncSession,
     user_id: str,
@@ -508,13 +606,12 @@ async def get_source_view(
 
     return WcsSourceViewItem(
         source=_source_item(source),
-        attributions=[WcsSourceAttributionItem.model_validate(a) for a in attributions],
-        definitions=[WcsEntityDefinitionItem.model_validate(d) for d in definitions],
-        relations=[WcsEntityRelationItem.model_validate(r) for r in relations],
-        drill_purposes=[WcsDrillPurposeItem.model_validate(d) for d in drill_purposes],
+        attributions=[_attribution_item(a) for a in attributions],
+        definitions=[_definition_item(d) for d in definitions],
+        relations=[_relation_item(r) for r in relations],
+        drill_purposes=[_drill_purpose_item(d) for d in drill_purposes],
         technique_requirements=[
-            WcsTechniqueRequirementItem.model_validate(t)
-            for t in technique_requirements
+            _technique_requirement_item(t) for t in technique_requirements
         ],
         references=[WcsSourceReferenceItem.model_validate(r) for r in references],
     )

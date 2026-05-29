@@ -1048,6 +1048,21 @@ class WcsSourceAttributionItem(BaseModel):
     origin: str = Field(
         ..., description="Originating source or upstream attribution metadata."
     )
+    entity_slug: str = Field("", description="Canonical slug of the attributed entity.")
+    entity_name: str = Field(
+        "", description="Canonical display name of the attributed entity."
+    )
+    entity_kind: str = Field(
+        "",
+        description="Kind of the attributed entity (concept|technique|pattern|drill).",
+    )
+    instructor_slug: str | None = Field(
+        None, description="Canonical slug of the attributing instructor, if linked."
+    )
+    instructor_name: str | None = Field(
+        None,
+        description="Canonical display name of the attributing instructor, if linked.",
+    )
 
 
 class WcsEntityRelationItem(BaseModel):
@@ -1068,6 +1083,16 @@ class WcsEntityRelationItem(BaseModel):
     origin: str = Field(
         ..., description="Originating source or upstream attribution metadata."
     )
+    from_entity_slug: str = Field("", description="Canonical slug of the from-entity.")
+    from_entity_name: str = Field(
+        "", description="Canonical display name of the from-entity."
+    )
+    from_entity_kind: str = Field("", description="Kind of the from-entity.")
+    to_entity_slug: str = Field("", description="Canonical slug of the to-entity.")
+    to_entity_name: str = Field(
+        "", description="Canonical display name of the to-entity."
+    )
+    to_entity_kind: str = Field("", description="Kind of the to-entity.")
 
 
 class WcsDrillPurposeItem(BaseModel):
@@ -1091,6 +1116,12 @@ class WcsDrillPurposeItem(BaseModel):
     origin: str = Field(
         ..., description="Originating source or upstream attribution metadata."
     )
+    drill_entity_slug: str = Field(
+        "", description="Canonical slug of the drill entity."
+    )
+    drill_entity_name: str = Field(
+        "", description="Canonical display name of the drill entity."
+    )
 
 
 class WcsTechniqueRequirementItem(BaseModel):
@@ -1110,6 +1141,12 @@ class WcsTechniqueRequirementItem(BaseModel):
     prose: str = Field(..., description="Free-text content for this row.")
     origin: str = Field(
         ..., description="Originating source or upstream attribution metadata."
+    )
+    technique_entity_slug: str = Field(
+        "", description="Canonical slug of the technique entity."
+    )
+    technique_entity_name: str = Field(
+        "", description="Canonical display name of the technique entity."
     )
 
 
@@ -1135,6 +1172,18 @@ class WcsEntityDefinitionItem(BaseModel):
     )
     origin: str = Field(
         ..., description="Originating source or upstream attribution metadata."
+    )
+    entity_slug: str = Field("", description="Canonical slug of the defined entity.")
+    entity_name: str = Field(
+        "", description="Canonical display name of the defined entity."
+    )
+    entity_kind: str = Field("", description="Kind of the defined entity.")
+    instructor_slug: str | None = Field(
+        None, description="Canonical slug of the defining instructor, if linked."
+    )
+    instructor_name: str | None = Field(
+        None,
+        description="Canonical display name of the defining instructor, if linked.",
     )
 
 

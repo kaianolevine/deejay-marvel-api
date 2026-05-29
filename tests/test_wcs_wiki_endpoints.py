@@ -175,7 +175,30 @@ async def test_get_source_view(client, seeded_source) -> None:
     frame_id = frame.json()["data"]["entity"]["id"]
     frame_attrs = [a for a in data["attributions"] if a["entity_id"] == frame_id]
     assert len(frame_attrs) >= 1
-    assert frame_attrs[0]["entity_id"] == frame_id
+    frame_attr = frame_attrs[0]
+    assert frame_attr["entity_id"] == frame_id
+    assert frame_attr["entity_slug"] == "frame"
+    assert frame_attr["entity_name"] == "Frame"
+    assert frame_attr["entity_kind"] == "concept"
+    frame_def = next(d for d in data["definitions"] if d["entity_id"] == frame_id)
+    assert frame_def["entity_slug"] == "frame"
+    assert frame_def["entity_name"] == "Frame"
+    assert frame_def["entity_kind"] == "concept"
+    drill_rel = next(
+        r
+        for r in data["relations"]
+        if r.get("relation_kind") == "drill_trains_technique"
+    )
+    assert drill_rel["from_entity_slug"] == "paper-drill"
+    assert drill_rel["from_entity_name"] == "Paper Drill"
+    assert drill_rel["to_entity_slug"] == "anchor-step"
+    assert drill_rel["to_entity_name"] == "Anchor Step"
+    drill_purpose = data["drill_purposes"][0]
+    assert drill_purpose["drill_entity_slug"] == "paper-drill"
+    assert drill_purpose["drill_entity_name"] == "Paper Drill"
+    tech_req = data["technique_requirements"][0]
+    assert tech_req["technique_entity_slug"] == "anchor-step"
+    assert tech_req["technique_entity_name"] == "Anchor Step"
     refs = data["references"]
     assert len(refs) >= 1
     assert refs[0]["referenced_name"] == "Ben Morris"
