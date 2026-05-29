@@ -410,10 +410,8 @@ async def compose_source(
         "references": 0,
     }
 
-    default_instructor_ids: list[uuid.UUID] = []
     for raw_instructor in source.instructors_raw:
-        instructor = await resolve_instructor(session, raw_instructor, source_id)
-        default_instructor_ids.append(instructor.id)
+        await resolve_instructor(session, raw_instructor, source_id)
 
     raw_dict = dict(extraction.raw_output)
     for rel in raw_dict.get("entity_relations") or []:
@@ -435,42 +433,34 @@ async def compose_source(
             entity.external_origin = ent.external_origin
             await session.flush()
 
-        instructor_targets: list[uuid.UUID | None] = (
-            list(default_instructor_ids) if default_instructor_ids else [None]
-        )
-        for instructor_id in instructor_targets:
-            session.add(
-                WcsSourceAttribution(
-                    source_id=source_id,
-                    entity_id=entity.id,
-                    instructor_id=instructor_id,
-                    attribution_kind="taught",
-                    prose=prose,
-                    raw_term=ent.name,
-                    position=position,
-                    origin="extraction",
-                )
+        session.add(
+            WcsSourceAttribution(
+                source_id=source_id,
+                entity_id=entity.id,
+                instructor_id=None,
+                attribution_kind="taught",
+                prose=prose,
+                raw_term=ent.name,
+                position=position,
+                origin="extraction",
             )
-            counts["attributions"] += 1
+        )
+        counts["attributions"] += 1
 
     for pos, defn in enumerate(raw_output.entity_definitions):
         entity = await resolve_entity(session, defn.entity_name, "concept")
-        def_instructor_targets: list[uuid.UUID | None] = (
-            list(default_instructor_ids) if default_instructor_ids else [None]
-        )
-        for instructor_id in def_instructor_targets:
-            session.add(
-                WcsEntityDefinition(
-                    entity_id=entity.id,
-                    source_id=source_id,
-                    instructor_id=instructor_id,
-                    term=defn.entity_name,
-                    definition=defn.definition,
-                    position=pos,
-                    origin="extraction",
-                )
+        session.add(
+            WcsEntityDefinition(
+                entity_id=entity.id,
+                source_id=source_id,
+                instructor_id=None,
+                term=defn.entity_name,
+                definition=defn.definition,
+                position=pos,
+                origin="extraction",
             )
-            counts["definitions"] += 1
+        )
+        counts["definitions"] += 1
 
     for rel in raw_output.entity_relations:
         from_entity = await resolve_entity(session, rel.from_, "concept")
@@ -520,25 +510,21 @@ async def compose_source(
         if mistake.entity_name is None:
             continue
         entity = await resolve_entity(session, mistake.entity_name, "concept")
-        mistake_instructor_targets: list[uuid.UUID | None] = (
-            list(default_instructor_ids) if default_instructor_ids else [None]
-        )
-        for instructor_id in mistake_instructor_targets:
-            session.add(
-                WcsSourceAttribution(
-                    source_id=source_id,
-                    entity_id=entity.id,
-                    instructor_id=instructor_id,
-                    attribution_kind="mistake",
-                    prose="",
-                    raw_term=mistake.entity_name,
-                    position=pos,
-                    mistake_text=mistake.mistake,
-                    correction_text=mistake.correction,
-                    origin="extraction",
-                )
+        session.add(
+            WcsSourceAttribution(
+                source_id=source_id,
+                entity_id=entity.id,
+                instructor_id=None,
+                attribution_kind="mistake",
+                prose="",
+                raw_term=mistake.entity_name,
+                position=pos,
+                mistake_text=mistake.mistake,
+                correction_text=mistake.correction,
+                origin="extraction",
             )
-            counts["attributions"] += 1
+        )
+        counts["attributions"] += 1
 
     competition_entity = await resolve_entity(
         session, _COMPETITION_STRATEGY_NAME, "concept"
@@ -551,23 +537,19 @@ async def compose_source(
         note_prose = comp.note
         if comp.context:
             note_prose = f"{comp.note} ({comp.context})"
-        comp_instructor_targets: list[uuid.UUID | None] = (
-            list(default_instructor_ids) if default_instructor_ids else [None]
-        )
-        for instructor_id in comp_instructor_targets:
-            session.add(
-                WcsSourceAttribution(
-                    source_id=source_id,
-                    entity_id=entity.id,
-                    instructor_id=instructor_id,
-                    attribution_kind="competition_note",
-                    prose=note_prose,
-                    raw_term=comp.entity_name or "",
-                    position=pos,
-                    origin="extraction",
-                )
+        session.add(
+            WcsSourceAttribution(
+                source_id=source_id,
+                entity_id=entity.id,
+                instructor_id=None,
+                attribution_kind="competition_note",
+                prose=note_prose,
+                raw_term=comp.entity_name or "",
+                position=pos,
+                origin="extraction",
             )
-            counts["attributions"] += 1
+        )
+        counts["attributions"] += 1
 
     for ref in raw_output.references:
         session.add(

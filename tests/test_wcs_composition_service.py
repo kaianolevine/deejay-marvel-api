@@ -37,6 +37,7 @@ from kaianolevine_api.services.wcs_composition import (
     resolve_instructor,
     slugify,
 )
+from kaianolevine_api.services.wcs_wiki import get_instructor_view
 
 
 @pytest.fixture
@@ -230,13 +231,14 @@ async def _seed_source_with_extraction(
     *,
     raw_output: dict | None = None,
     instructors_raw: list[str] | None = None,
+    drive_file_id: str | None = None,
 ) -> tuple[WcsSource, WcsSourceExtraction]:
     transcript = WcsTranscript(
         owner_id="dev-owner",
         raw_text="Transcript text.",
         source_type="plaud",
         source_filename="lesson.txt",
-        drive_file_id="drive-1",
+        drive_file_id=drive_file_id or f"drive-{uuid.uuid4().hex[:12]}",
     )
     db_session.add(transcript)
     await db_session.flush()
@@ -278,6 +280,21 @@ async def test_compose_source_writes_canonical_rows(db_session: AsyncSession) ->
         )
     ).scalar_one()
     assert attr_count >= 3
+
+    extraction_attrs = (
+        (
+            await db_session.execute(
+                select(WcsSourceAttribution).where(
+                    WcsSourceAttribution.source_id == source.id,
+                    WcsSourceAttribution.origin == "extraction",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert extraction_attrs
+    assert all(a.instructor_id is None for a in extraction_attrs)
 
     defs = (
         (
@@ -535,6 +552,140 @@ async def test_compose_preserves_entity_overview_md(db_session: AsyncSession) ->
     refreshed = await db_session.get(WcsEntity, entity.id)
     assert refreshed is not None
     assert refreshed.overview_md == "Polished overview prose."
+
+
+async def test_composer_writes_one_row_per_extracted_item_regardless_of_instructor_count(
+    db_session: AsyncSession,
+) -> None:
+    """Co-taught sources get the same row count as single-instructor; all NULL instructor_id."""
+    single_source, _ = await _seed_source_with_extraction(
+        db_session, instructors_raw=["Kaiano"]
+    )
+    await compose_source(db_session, single_source.id)
+    await db_session.commit()
+
+    single_attr_count = (
+        await db_session.execute(
+            select(func.count())
+            .select_from(WcsSourceAttribution)
+            .where(
+                WcsSourceAttribution.source_id == single_source.id,
+                WcsSourceAttribution.origin == "extraction",
+            )
+        )
+    ).scalar_one()
+    single_def_count = (
+        await db_session.execute(
+            select(func.count())
+            .select_from(WcsEntityDefinition)
+            .where(
+                WcsEntityDefinition.source_id == single_source.id,
+                WcsEntityDefinition.origin == "extraction",
+            )
+        )
+    ).scalar_one()
+
+    co_source, _ = await _seed_source_with_extraction(
+        db_session,
+        instructors_raw=["Kaiano", "Amy"],
+    )
+    await compose_source(db_session, co_source.id)
+    await db_session.commit()
+
+    co_attr_count = (
+        await db_session.execute(
+            select(func.count())
+            .select_from(WcsSourceAttribution)
+            .where(
+                WcsSourceAttribution.source_id == co_source.id,
+                WcsSourceAttribution.origin == "extraction",
+            )
+        )
+    ).scalar_one()
+    co_def_count = (
+        await db_session.execute(
+            select(func.count())
+            .select_from(WcsEntityDefinition)
+            .where(
+                WcsEntityDefinition.source_id == co_source.id,
+                WcsEntityDefinition.origin == "extraction",
+            )
+        )
+    ).scalar_one()
+
+    assert co_attr_count == single_attr_count
+    assert co_def_count == single_def_count
+
+    co_attrs = (
+        (
+            await db_session.execute(
+                select(WcsSourceAttribution).where(
+                    WcsSourceAttribution.source_id == co_source.id,
+                    WcsSourceAttribution.origin == "extraction",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert all(a.instructor_id is None for a in co_attrs)
+
+
+async def test_get_instructor_view_returns_coauth_rows_with_null_instructor_id(
+    db_session: AsyncSession,
+) -> None:
+    kaiano = await resolve_instructor(db_session, "Kaiano")
+    await resolve_instructor(db_session, "Amy")
+    await resolve_instructor(db_session, "Bob")
+    entity = await resolve_entity(db_session, "Frame", "concept")
+    await db_session.commit()
+
+    transcript = WcsTranscript(
+        owner_id="dev-owner",
+        raw_text="Co-taught lesson.",
+        source_type="plaud",
+        source_filename="co-lesson.txt",
+        drive_file_id="drive-co",
+    )
+    db_session.add(transcript)
+    await db_session.flush()
+
+    source = WcsSource(
+        owner_id="dev-owner",
+        transcript_id=transcript.id,
+        instructors_raw=["Kaiano", "Amy"],
+        students_raw=["Sarah"],
+        is_default_visible=True,
+    )
+    db_session.add(source)
+    await db_session.flush()
+
+    db_session.add(
+        WcsSourceAttribution(
+            source_id=source.id,
+            entity_id=entity.id,
+            instructor_id=None,
+            attribution_kind="taught",
+            prose="Connection framing.",
+            raw_term="Frame",
+            position=0,
+            origin="extraction",
+        )
+    )
+    await db_session.commit()
+
+    kaiano_view = await get_instructor_view(db_session, "viewer", slug=kaiano.slug)
+    assert kaiano_view is not None
+    assert len(kaiano_view.attributions) == 1
+    assert kaiano_view.attributions[0].instructor_id is None
+
+    amy_view = await get_instructor_view(db_session, "viewer", slug="amy")
+    assert amy_view is not None
+    assert len(amy_view.attributions) == 1
+
+    bob_view = await get_instructor_view(db_session, "viewer", slug="bob")
+    assert bob_view is not None
+    assert len(bob_view.attributions) == 0
 
 
 async def test_compose_no_instructors_writes_null_instructor_attribution(

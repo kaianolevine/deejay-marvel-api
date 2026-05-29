@@ -6,7 +6,7 @@ import datetime as dt
 import uuid
 from collections import defaultdict
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import (
@@ -323,13 +323,42 @@ async def get_instructor_view(
     visible_ids = await visible_source_ids_for_user(session, user_id)
     alias_map = await _alias_map_for_instructors(session, [instructor.id])
 
+    # Names this instructor is known by — canonical plus aliases. Used to
+    # match against wcs_sources.instructors_raw (a list[str]) to find every
+    # source where this instructor was teaching, regardless of whether the
+    # row-level instructor_id is set.
+    instructor_names = {instructor.canonical_name, *alias_map.get(instructor.id, [])}
+
+    # Fetch all visible source ids + instructors_raw, then filter in Python.
+    # We filter in Python rather than using PG array overlap to keep the
+    # query dialect-agnostic (tests run against SQLite where instructors_raw
+    # is a JSON column without array operators).
+    src_rows = (
+        await session.execute(
+            select(WcsSource.id, WcsSource.instructors_raw).where(
+                WcsSource.id.in_(visible_ids),
+            )
+        )
+    ).all()
+    coauth_source_ids: set[uuid.UUID] = {
+        sid
+        for sid, raw in src_rows
+        if any(name in instructor_names for name in (raw or []))
+    }
+
     attr_rows = (
         (
             await session.execute(
                 select(WcsSourceAttribution)
                 .where(
-                    WcsSourceAttribution.instructor_id == instructor.id,
                     WcsSourceAttribution.source_id.in_(visible_ids),
+                    or_(
+                        WcsSourceAttribution.instructor_id == instructor.id,
+                        and_(
+                            WcsSourceAttribution.instructor_id.is_(None),
+                            WcsSourceAttribution.source_id.in_(coauth_source_ids),
+                        ),
+                    ),
                 )
                 .order_by(WcsSourceAttribution.position)
             )
@@ -343,8 +372,14 @@ async def get_instructor_view(
             await session.execute(
                 select(WcsEntityDefinition)
                 .where(
-                    WcsEntityDefinition.instructor_id == instructor.id,
                     WcsEntityDefinition.source_id.in_(visible_ids),
+                    or_(
+                        WcsEntityDefinition.instructor_id == instructor.id,
+                        and_(
+                            WcsEntityDefinition.instructor_id.is_(None),
+                            WcsEntityDefinition.source_id.in_(coauth_source_ids),
+                        ),
+                    ),
                 )
                 .order_by(WcsEntityDefinition.position)
             )

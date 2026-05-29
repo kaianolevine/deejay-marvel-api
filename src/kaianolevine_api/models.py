@@ -935,6 +935,13 @@ class WcsEntityDefinition(Base):
         UUID(as_uuid=True),
         ForeignKey("wcs_instructors.id", ondelete="SET NULL"),
         nullable=True,
+        comment=(
+            "Optional per-row instructor attribution. Extraction-origin "
+            "rows always set this to NULL; instructor identity is derived "
+            "from the parent source's instructors_raw at read time. "
+            "Operator-added rows MAY set this to attribute a row to a "
+            "specific instructor (e.g., a direct quote)."
+        ),
     )
     term: Mapped[str] = mapped_column(Text, nullable=False)
     definition: Mapped[str] = mapped_column(Text, nullable=False)
@@ -1037,6 +1044,13 @@ class WcsSourceAttribution(Base):
         UUID(as_uuid=True),
         ForeignKey("wcs_instructors.id", ondelete="SET NULL"),
         nullable=True,
+        comment=(
+            "Optional per-row instructor attribution. Extraction-origin "
+            "rows always set this to NULL; instructor identity is derived "
+            "from the parent source's instructors_raw at read time. "
+            "Operator-added rows MAY set this to attribute a row to a "
+            "specific instructor (e.g., a direct quote)."
+        ),
     )
     attribution_kind: Mapped[str] = mapped_column(
         Text, nullable=False, default="taught", server_default="taught"
