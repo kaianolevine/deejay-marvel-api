@@ -218,8 +218,10 @@ class TestBootstrap:
         await runner._bootstrap(conn, migrations, exclude={"019_c.sql"})
 
         conn.executemany.assert_awaited_once()
+        assert conn.executemany.called
+        assert conn.executemany.call_count == 1
         # Verify the records being inserted exclude 019.
-        call_args = conn.executemany.await_args
+        call_args = conn.executemany.call_args
         records = call_args.args[1]
         names = [r[0] for r in records]
         assert names == ["001_a.sql", "002_b.sql"]
@@ -237,6 +239,8 @@ class TestBootstrap:
 
         # executemany should not be called when there's nothing to mark.
         conn.executemany.assert_not_awaited()
+        assert not conn.executemany.called
+        assert conn.executemany.call_count == 0
 
 
 class TestRunFlow:
