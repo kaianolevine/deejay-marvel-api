@@ -14,6 +14,17 @@ Header parity with the shared ``common-python-utils`` client
 ``Authorization: Bearer <token>`` acquired from Clerk and this module
 verifies tokens arriving in that same header. Any change to the
 accepted header name or token format must be made in both places.
+
+Reference implementation (XSTACK-005): the inline verification here —
+JWKS fetch/cache, RS256 JWT decode, M2M opaque verification via Clerk
+BAPI — is intentionally NOT delegated to ``common-python-utils``. The
+shared library covers only the *client* side of Clerk M2M (token
+creation in ``mini_app_polis.api.client``); it exposes no
+``verify_token`` or equivalent server-side helper. This module is the
+ecosystem's authoritative verification implementation. If a second
+service ever needs to verify Clerk tokens, upstream this logic to
+``common-python-utils`` (e.g. ``mini_app_polis.auth.verify_token``)
+and convert this module into a thin consumer rather than copying it.
 """
 
 from __future__ import annotations
