@@ -1,3 +1,10 @@
+## [1.42.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.42.1...v1.42.2) (2026-06-07)
+
+
+### Bug Fixes
+
+* adjusting tests for conformnce checker ([4ec3343](https://github.com/mini-app-polis/api-kaianolevine-com/commit/4ec3343e8bd78dd434781c407109cd3dd795e9d4))
+
 ## [1.42.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.42.0...v1.42.1) (2026-05-29)
 
 
