@@ -9,18 +9,22 @@ not been minted yet.
 Idempotent — safe to re-run. Re-running with a different role set replaces
 the grants; it never deletes the principal.
 
-Usage:
-    python scripts/seed_principal.py \
+Run it through uv, like everything else in this repo — bare `python` will not
+see the project environment and the identity import will fail:
+
+    uv run python scripts/seed_principal.py \
         --subject mch_deejay_cog \
         --kind machine \
         --display-name deejay-cog \
         --role catalog-ingest
 
     # a human admin
-    python scripts/seed_principal.py \
+    uv run python scripts/seed_principal.py \
         --subject user_2abc... --kind human --role wcs-admin --role wcs-reader
 
-Requires DATABASE_URL in the environment, as apply_migrations.py does.
+DATABASE_URL must point at the database you intend to write to. There is no
+guard here against pointing it at production by accident, so use --dry-run
+first: it resolves everything and prints the change without writing.
 """
 
 from __future__ import annotations
