@@ -1,3 +1,10 @@
+## [1.43.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.43.0...v1.43.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* filling out auth ([0d0d3da](https://github.com/mini-app-polis/api-kaianolevine-com/commit/0d0d3da24e1293cd7557362f5f231e26db98e526))
+
 # [1.43.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.42.2...v1.43.0) (2026-09-01)
 
 
