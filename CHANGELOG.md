@@ -1,3 +1,11 @@
+# [1.43.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.42.2...v1.43.0) (2026-09-01)
+
+
+### Features
+
+* **identity:** pin identity v1.0.1, add principal seed script ([c6f9e76](https://github.com/mini-app-polis/api-kaianolevine-com/commit/c6f9e7646d919b59e53a915cc9e9eaee91dcd53b))
+* migrating auth ([5449bee](https://github.com/mini-app-polis/api-kaianolevine-com/commit/5449beeeab903fcdb46e687df10db1280cb089eb))
+
 ## [1.42.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.42.1...v1.42.2) (2026-06-07)
 
 
