@@ -22,7 +22,14 @@ os.environ.setdefault("CONTACT_FROM_EMAIL", "from@example.com")
 os.environ.setdefault("TURNSTILE_SECRET_KEY", "test-turnstile-secret")
 os.environ.setdefault("CORS_ORIGINS", '["https://kaianolevine.com"]')
 
-from identity.store import IdentityBase  # noqa: E402
+from identity.store import (  # noqa: E402
+    IdentityBase,
+    Issuer,
+    Principal,
+    PrincipalRole,
+    Role,
+    RoleScope,
+)
 from identity.types import VerifiedSubject  # noqa: E402
 
 from kaianolevine_api import auth as auth_mod  # noqa: E402
@@ -97,6 +104,9 @@ async def client(async_engine) -> AsyncIterator[httpx.AsyncClient]:
         )
     )
 
+    async with sessionmaker() as seed_session:
+        await seed_identity(seed_session)
+
     app.dependency_overrides[get_db_session] = override_get_db_session
 
     transport = httpx.ASGITransport(app=app)
@@ -117,3 +127,74 @@ async def db_session(async_engine) -> AsyncIterator[AsyncSession]:
     maker = async_sessionmaker(async_engine, expire_on_commit=False, autoflush=False)
     async with maker() as session:
         yield session
+
+
+# The default test caller. Router tests exercise endpoints, not the principal
+# store, so the caller they authenticate as needs to already exist and hold
+# the scopes those endpoints require — the same state a real caller reaches by
+# registering once. Tests that care about an *unknown* caller use a different
+# subject and are unaffected.
+DEV_ISSUER = "https://clerk.kaianolevine.com"
+DEV_SUBJECT = "dev-owner"
+
+_DEV_ROLES = {
+    "wcs-admin": ["wcs.notes.read", "wcs.notes.write", "wcs.grants.write"],
+    "wcs-reader": ["wcs.notes.read"],
+    "pipeline-writer": ["pipeline.evaluations.write", "pipeline.findings.write"],
+    "catalog-ingest": [
+        "catalog.sets.write",
+        "catalog.tracks.write",
+        "catalog.plays.write",
+    ],
+}
+
+
+async def seed_identity(session: AsyncSession) -> None:
+    """Idempotently create the issuer, role vocabulary and default principal."""
+    from sqlalchemy import select
+
+    if (
+        await session.execute(select(Issuer).where(Issuer.issuer == DEV_ISSUER))
+    ).scalars().first() is None:
+        session.add(
+            Issuer(
+                issuer=DEV_ISSUER,
+                jwks_url=f"{DEV_ISSUER}/.well-known/jwks.json",
+            )
+        )
+    for name, scopes in _DEV_ROLES.items():
+        if (
+            await session.execute(select(Role).where(Role.name == name))
+        ).scalars().first() is None:
+            session.add(Role(name=name, description=name))
+            for scope in scopes:
+                session.add(RoleScope(role_name=name, scope=scope))
+    await session.flush()
+
+    principal = (
+        (
+            await session.execute(
+                select(Principal).where(
+                    Principal.issuer == DEV_ISSUER, Principal.subject == DEV_SUBJECT
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if principal is None:
+        principal = Principal(
+            kind="human",
+            issuer=DEV_ISSUER,
+            subject=DEV_SUBJECT,
+            display_name="dev-owner",
+        )
+        session.add(principal)
+        await session.flush()
+        for name in _DEV_ROLES:
+            session.add(
+                PrincipalRole(
+                    principal_id=principal.id, role_name=name, granted_by="conftest"
+                )
+            )
+    await session.commit()

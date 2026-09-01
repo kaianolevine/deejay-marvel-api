@@ -24,6 +24,7 @@ from .routers import (
     contact,
     evaluations,
     flags,
+    identity_debug,
     ingest,
     live_plays,
     resume,
@@ -68,8 +69,44 @@ async def lifespan(_app: FastAPI):
                 f"kaianolevine-api starting (env={settings.ENVIRONMENT}, sentry=off)",
             )
         )
+    await _reconcile_identity_registry()
+
     yield
     logger.info(with_log_prefix(LOG_WARNING, "kaianolevine-api shutting down"))
+
+
+async def _reconcile_identity_registry() -> None:
+    """Apply the declared machine principals (identity_registry.MACHINES).
+
+    Runs on every boot so a deploy is what applies a declaration change.
+    Failures are logged and swallowed: reconciliation must never take the
+    service down, and failing to grant is already fail-closed — an ungranted
+    principal is denied by the ordinary authorization path, not let through.
+    """
+    try:
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+
+        from .database import get_engine
+        from .identity_registry import reconcile
+
+        maker = async_sessionmaker(get_engine(), expire_on_commit=False)
+        async with maker() as session:
+            result = await reconcile(session)
+        if any(result.values()):
+            logger.info(
+                with_log_prefix(
+                    LOG_START,
+                    "identity registry reconciled "
+                    f"created={result['created']} granted={result['granted']} "
+                    f"revoked={result['revoked']}",
+                )
+            )
+    except Exception as exc:  # noqa: BLE001 - see docstring
+        logger.warning(
+            with_log_prefix(
+                LOG_WARNING, f"identity registry reconciliation failed: {exc!r}"
+            )
+        )
 
 
 def _build_app() -> FastAPI:
@@ -173,6 +210,7 @@ def _build_app() -> FastAPI:
     app.include_router(catalog.router, prefix="/v1", tags=["catalog"])
     app.include_router(evaluations.router, prefix="/v1", tags=["evaluations"])
     app.include_router(flags.router, prefix="/v1", tags=["flags"])
+    app.include_router(identity_debug.router, prefix="/v1", tags=["identity"])
     app.include_router(stats.router, prefix="/v1", tags=["stats"])
     app.include_router(spotify.router, prefix="/v1", tags=["spotify"])
     app.include_router(ingest.router, prefix="/v1", tags=["ingest"])

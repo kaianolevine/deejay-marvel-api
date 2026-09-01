@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, HTTPException
+from identity.types import Principal
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS, LOG_WARNING
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import require_scope
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import Set as DbSet
@@ -27,11 +28,28 @@ log = logger_mod.get_logger()
 )
 async def ingest_set(
     payload: IngestSet = Body(..., embed=False),
-    owner_id: str = Depends(get_current_owner),
+    principal: Principal = Depends(require_scope("catalog.sets.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[IngestResponseData]:
-    """Ingest one DJ set payload and update tracks plus catalog stats."""
-    log.info("%s ingest received source_file=%s", LOG_START, payload.source_file)
+    """Ingest one DJ set payload and update tracks plus catalog stats.
+
+    First endpoint on the identity path: verify, resolve, authorize, audit.
+    Every call writes a row to identity_audit_events naming the principal, so
+    the trail records which cog ingested rather than only that a cog did.
+
+    ``owner_id`` remains the caller's Clerk subject, unchanged in meaning. It
+    does change in value when a cog moves from the shared fleet secret to its
+    own — a known, accepted discontinuity: rows written before the move keep
+    the old subject, so re-ingesting a source_file from before it will create
+    a second set rather than update the first.
+    """
+    owner_id = principal.subject
+    log.info(
+        "%s ingest received source_file=%s principal=%s",
+        LOG_START,
+        payload.source_file,
+        principal.display_name or principal.subject,
+    )
 
     settings = get_settings()
     if not await is_enabled("flags.deejay_api.ingest_enabled", session):
