@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     CLERK_ISSUER: str | None = None
     CLERK_SECRET_KEY: str | None = None
 
+    # Multi-issuer form, used by the identity binding. JSON array of
+    # {issuer, jwks_url, secret_key}. When unset, the three singular vars
+    # above are read as the one-tenant shorthand. The two Clerk tenants are
+    # separate products and are never merged into one issuer.
+    CLERK_ISSUERS: str | None = None
+
     # Contact form
     BREVO_API_KEY: str | None = None
     CONTACT_TO_EMAIL: str | None = None

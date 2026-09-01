@@ -1,42 +1,52 @@
-"""Authentication — Clerk token verification (Project Keystone Phase 3).
+"""Authentication and authorization — a conformant identity enforcement point.
 
-Accepts two token types on ``Authorization: Bearer <token>``:
-  - Clerk session JWTs (human users) — RS256, verified locally via JWKS
-  - Clerk M2M opaque tokens (cogs)   — verified via Clerk BAPI
+This module used to carry its own Clerk verification: JWKS fetch and cache,
+RS256 decode, M2M opaque verification via Clerk BAPI. Its own docstring said
+what to do when a second service needed the same logic —
 
-Required env vars:
-  CLERK_JWKS_URL   — e.g. https://clerk.kaianolevine.com/.well-known/jwks.json
-  CLERK_ISSUER     — e.g. https://clerk.kaianolevine.com
-  CLERK_SECRET_KEY — Clerk secret key for opaque token verification
+    "If a second service ever needs to verify Clerk tokens, upstream this
+     logic ... and convert this module into a thin consumer rather than
+     copying it."
 
-Header parity with the shared ``common-python-utils`` client
-(``mini_app_polis.api.KaianoApiClient``): the client attaches
-``Authorization: Bearer <token>`` acquired from Clerk and this module
-verifies tokens arriving in that same header. Any change to the
-accepted header name or token format must be made in both places.
+A second enforcement point now exists, so that is what happened. Verification
+lives in ``identity.clerk``; the decision lives in ``identity.policy``; the
+store lives in ``identity.store``. What remains here is what the contract says
+should remain in a service: configuration, and thin FastAPI adapters.
 
-Reference implementation (XSTACK-005): the inline verification here —
-JWKS fetch/cache, RS256 JWT decode, M2M opaque verification via Clerk
-BAPI — is intentionally NOT delegated to ``common-python-utils``. The
-shared library covers only the *client* side of Clerk M2M (token
-creation in ``mini_app_polis.api.client``); it exposes no
-``verify_token`` or equivalent server-side helper. This module is the
-ecosystem's authoritative verification implementation. If a second
-service ever needs to verify Clerk tokens, upstream this logic to
-``common-python-utils`` (e.g. ``mini_app_polis.auth.verify_token``)
-and convert this module into a thin consumer rather than copying it.
+Two paths coexist during migration, deliberately:
+
+  * The legacy dependencies (``get_current_owner``, ``get_current_caller``,
+    ``require_wcs_admin``, ``require_wcs_service``) keep their exact return
+    contracts, so the nine routers that depend on them are unchanged. They now
+    verify through the identity binding rather than through inline code, so
+    there is one verification implementation, not two.
+
+  * ``require_scope(...)`` is the identity-native path: verify, resolve,
+    authorize, emit audit — all four functions, per request. New endpoints
+    should use it; existing ones move over one at a time.
+
+One behavioural change worth naming: ``require_wcs_service`` previously
+accepted only M2M *opaque* tokens and rejected M2M *JWTs*, because the
+opaque/JWT split was standing in for machine/human. The identity binding
+classifies by subject instead, so an M2M JWT is now correctly treated as a
+machine caller. This is the intent the old code was approximating.
 """
 
 from __future__ import annotations
 
-import asyncio
-import time
-from typing import Any, Literal
+import json
+from functools import lru_cache
 
-import httpx
-import jwt
-from fastapi import Depends, Header
-from jwt import PyJWK
+from fastapi import Depends, Header, Request
+from identity.clerk import ClerkIssuer, ClerkVerifier
+from identity.errors import CredentialInvalid, IdentityError, IssuerNotTrusted
+from identity.policy import authorize as decide
+from identity.store import (
+    SqlAlchemyAuditSink,
+    SqlAlchemyPrincipalStore,
+    new_audit_event,
+)
+from identity.types import Principal, PrincipalKind, VerifiedSubject
 from mini_app_polis.logger import LOG_WARNING, get_logger, with_log_prefix
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,188 +58,140 @@ from .schemas import api_error
 
 logger = get_logger()
 
-TokenKind = Literal["jwt", "opaque"]
-
-# JWKS document cache: url -> (monotonic_expiry, jwks_json). TTL 5 minutes.
-_jwks_doc_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+ENFORCEMENT_POINT = "api-kaianolevine-com"
 
 
-async def _fetch_jwks_document(jwks_url: str) -> dict[str, Any]:
-    """Fetch JWKS JSON with httpx; reuse cached document for 5 minutes."""
-    now = time.monotonic()
-    hit = _jwks_doc_cache.get(jwks_url)
-    if hit is not None:
-        expires_at, doc = hit
-        if now < expires_at:
-            return doc
-
-    settings = get_settings()
-    async with httpx.AsyncClient(timeout=settings.HTTP_CLIENT_TIMEOUT_SECS) as client:
-        resp = await client.get(jwks_url)
-        resp.raise_for_status()
-        doc = resp.json()
-
-    _jwks_doc_cache[jwks_url] = (now + 300.0, doc)
-    return doc
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
 
 
-def _decode_clerk_jwt_sync(
-    token: str, settings: Settings, jwks_doc: dict[str, Any]
-) -> str | None:
-    """Verify RS256 JWT against a JWKS document; return ``sub`` or None."""
-    if not settings.CLERK_ISSUER:
-        return None
-    try:
-        header = jwt.get_unverified_header(token)
-        kid = header.get("kid")
-        if not kid:
-            return None
+def _issuers_from_settings(settings: Settings) -> list[ClerkIssuer]:
+    """Build the trusted-issuer set.
 
-        keys = jwks_doc.get("keys")
-        if not isinstance(keys, list):
-            return None
-
-        jwk_dict: dict[str, Any] | None = None
-        for key in keys:
-            if isinstance(key, dict) and key.get("kid") == kid:
-                jwk_dict = key
-                break
-        if jwk_dict is None:
-            return None
-
-        signing_key = PyJWK.from_dict(jwk_dict)
-        payload = jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=["RS256"],
-            issuer=settings.CLERK_ISSUER,
-            options={"verify_aud": False},
-        )
-        sub = payload.get("sub")
-        return str(sub) if sub is not None else None
-    except Exception as exc:
-        logger.warning(
-            with_log_prefix(LOG_WARNING, f"Clerk JWT verification failed: {exc!r}")
-        )
-        return None
-
-
-async def _verify_opaque_token(token: str, settings: Settings) -> str | None:
+    Multi-issuer is expressed as ``CLERK_ISSUERS`` — a JSON array of
+    ``{issuer, jwks_url, secret_key}``. The singular ``CLERK_ISSUER`` /
+    ``CLERK_JWKS_URL`` / ``CLERK_SECRET_KEY`` vars remain supported as the
+    one-tenant shorthand this service already deploys with.
     """
-    Verify a Clerk M2M opaque token via the BAPI verify endpoint.
-    Returns the machine subject on success, or None on failure.
-    """
-    if not settings.CLERK_SECRET_KEY:
-        return None
-    try:
-        async with httpx.AsyncClient(
-            timeout=settings.HTTP_CLIENT_TIMEOUT_SECS
-        ) as client:
-            resp = await client.post(
-                "https://api.clerk.com/v1/m2m_tokens/verify",
-                headers={
-                    "Authorization": f"Bearer {settings.CLERK_SECRET_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={"token": token},
+    raw = getattr(settings, "CLERK_ISSUERS", None)
+    if raw:
+        entries = json.loads(raw) if isinstance(raw, str) else raw
+        return [
+            ClerkIssuer(
+                issuer=e["issuer"],
+                jwks_url=e["jwks_url"],
+                secret_key=e.get("secret_key"),
             )
-        if not resp.is_success:
-            return None
-        data = resp.json()
-        sub = data.get("subject") or data.get("sub")
-        return str(sub) if sub else None
-    except Exception as exc:
-        logger.warning(
-            with_log_prefix(
-                LOG_WARNING, f"Clerk opaque-token verification failed: {exc!r}"
+            for e in entries
+        ]
+
+    if settings.CLERK_ISSUER and settings.CLERK_JWKS_URL:
+        return [
+            ClerkIssuer(
+                issuer=settings.CLERK_ISSUER,
+                jwks_url=settings.CLERK_JWKS_URL,
+                secret_key=settings.CLERK_SECRET_KEY,
             )
-        )
+        ]
+    return []
+
+
+@lru_cache(maxsize=4)
+def _verifier_for(cache_key: str) -> ClerkVerifier | None:
+    """Cached verifier. The JWKS cache lives inside it, so it must persist."""
+    entries = json.loads(cache_key)
+    if not entries:
         return None
+    return ClerkVerifier([ClerkIssuer(**e) for e in entries])
 
 
-async def verify_clerk_jwt(
-    token: str, settings: Settings
-) -> tuple[str, TokenKind] | None:
-    """
-    Verify a Clerk token — either an RS256 JWT (session/M2M JWT) or an
-    M2M opaque token. Returns (sub, kind) on success, where kind is
-    "jwt" for an RS256-verified token (a user session or M2M JWT) and
-    "opaque" for an M2M opaque token verified via Clerk's BAPI. Returns
-    None on verification failure.
-
-    The kind discriminator is what downstream auth dependencies use to
-    distinguish service callers (cogs, presenting opaque M2M tokens)
-    from user sessions (presenting RS256 JWTs).
-    """
-    if not settings.CLERK_JWKS_URL or not settings.CLERK_ISSUER:
-        return None
-
-    # Opaque tokens have no dots; JWTs have exactly two.
-    if token.count(".") != 2:
-        sub = await _verify_opaque_token(token, settings)
-        return (sub, "opaque") if sub else None
-
-    try:
-        jwks_doc = await _fetch_jwks_document(settings.CLERK_JWKS_URL)
-    except Exception as exc:
-        logger.warning(
-            with_log_prefix(LOG_WARNING, f"JWKS document fetch failed: {exc!r}")
-        )
-        return None
-    sub = await asyncio.to_thread(_decode_clerk_jwt_sync, token, settings, jwks_doc)
-    return (sub, "jwt") if sub else None
+def get_verifier(settings: Settings | None = None) -> ClerkVerifier | None:
+    """Return the configured verifier, or None when Clerk is not configured."""
+    settings = settings or get_settings()
+    issuers = _issuers_from_settings(settings)
+    key = json.dumps(
+        [
+            {"issuer": i.issuer, "jwks_url": i.jwks_url, "secret_key": i.secret_key}
+            for i in issuers
+        ],
+        sort_keys=True,
+    )
+    return _verifier_for(key)
 
 
-async def _resolve_caller(
-    authorization: str | None,
-    settings: Settings,
-) -> tuple[str, TokenKind]:
-    """Resolve the caller from the Authorization header, returning (sub, kind).
+# ---------------------------------------------------------------------------
+# Step 1 — verify
+# ---------------------------------------------------------------------------
 
-    Raises 401 if missing or invalid.
+
+async def verify_bearer(
+    authorization: str | None, settings: Settings
+) -> VerifiedSubject:
+    """Verify the Authorization header. Raises 401 on any failure.
+
+    The failure reason is deliberately not returned to the caller — they are
+    unauthenticated by definition at this point. It is logged, and where a
+    scope is in play it is recorded on the audit event.
     """
     if authorization:
         scheme, _, token = authorization.partition(" ")
         if scheme.lower() == "bearer" and token:
-            result = await verify_clerk_jwt(token, settings)
-            if result is not None:
-                return result
+            verifier = get_verifier(settings)
+            if verifier is None:
+                raise api_error(401, "unauthorized", "Valid Bearer token required")
+            try:
+                return await verifier.verify(token)
+            except IssuerNotTrusted as exc:
+                logger.warning(with_log_prefix(LOG_WARNING, f"untrusted issuer: {exc}"))
+            except (CredentialInvalid, IdentityError) as exc:
+                logger.warning(
+                    with_log_prefix(LOG_WARNING, f"credential rejected: {exc!r}")
+                )
 
     raise api_error(401, "unauthorized", "Valid Bearer token required")
+
+
+# ---------------------------------------------------------------------------
+# Legacy dependencies — unchanged contracts, identity-backed internals
+# ---------------------------------------------------------------------------
 
 
 async def get_current_owner(
     authorization: str | None = Header(default=None, alias="Authorization"),
     settings: Settings = Depends(get_settings),
 ) -> str:
-    """Return the resolved sub for the authenticated caller.
+    """Return the issuer subject for the authenticated caller.
 
-    Used by per-caller endpoints that do not need to distinguish user
-    from machine identity.
+    Still the Clerk ``sub``, not the principal id, on purpose: existing rows
+    across this database store ``owner_id`` as the Clerk subject, and changing
+    what this returns would silently orphan them. Re-keying to principal ids
+    is a data migration, not a refactor.
     """
-    sub, _kind = await _resolve_caller(authorization, settings)
-    return sub
+    subject = await verify_bearer(authorization, settings)
+    return subject.subject
 
 
 async def get_current_caller(
     authorization: str | None = Header(default=None, alias="Authorization"),
     settings: Settings = Depends(get_settings),
-) -> tuple[str, TokenKind]:
-    """Return (sub, kind) for the authenticated caller.
-
-    Used by dependencies that need to distinguish user from service identity.
-    """
-    return await _resolve_caller(authorization, settings)
+) -> tuple[str, PrincipalKind]:
+    """Return ``(subject, kind)`` where kind is ``human`` or ``machine``."""
+    subject = await verify_bearer(authorization, settings)
+    return subject.subject, subject.kind
 
 
 async def require_wcs_admin(
     owner_id: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db_session),
 ) -> str:
-    """Ensures the caller is a WCS admin (human user with ``is_admin=true``).
+    """Ensure the caller is a WCS admin.
 
-    Service callers (cogs) use ``require_wcs_service``; this dependency is
-    for human-admin endpoints only.
+    Still reads ``wcs_user_profiles.is_admin`` rather than resolving a
+    principal. Migration 023 backfills those same humans into the principal
+    store with a ``wcs-admin`` role, so this dependency can move to
+    ``require_scope("wcs.notes.write")`` once the store is populated in
+    production — but flipping it before then would lock out every admin.
     """
     result = await session.execute(
         select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
@@ -241,21 +203,85 @@ async def require_wcs_admin(
 
 
 async def require_wcs_service(
-    caller: tuple[str, TokenKind] = Depends(get_current_caller),
+    caller: tuple[str, PrincipalKind] = Depends(get_current_caller),
 ) -> str:
-    """Ensures the caller authenticated via a Clerk M2M opaque token — a cog.
-
-    In this ecosystem, cogs share a single Clerk M2M machine secret
-    distributed via Doppler. Possession of that secret is the cog
-    identity claim. Any caller presenting a valid Clerk M2M opaque
-    token is, by construction, a cog. Human user sessions arrive as
-    RS256 JWTs (a distinct Clerk verification path) and are rejected
-    by this dependency.
-
-    Returns the machine subject. Raises 403 if the caller is a user
-    session rather than a machine.
-    """
-    sub, kind = caller
-    if kind != "opaque":
+    """Ensure the caller is a machine (a cog), not a human session."""
+    subject, kind = caller
+    if kind != "machine":
         raise api_error(403, "forbidden", "WCS service (cog) caller required")
-    return sub
+    return subject
+
+
+# ---------------------------------------------------------------------------
+# The identity-native path — all four contract functions
+# ---------------------------------------------------------------------------
+
+
+async def resolve_principal(
+    subject: VerifiedSubject, session: AsyncSession
+) -> Principal | None:
+    store = SqlAlchemyPrincipalStore(session, enforcement_point=ENFORCEMENT_POINT)
+    return await store.resolve(subject)
+
+
+def require_scope(scope: str, *, resource_param: str | None = None):
+    """Build a FastAPI dependency enforcing one scope.
+
+    Runs the full contract: verify, resolve, authorize, emit audit. The audit
+    event is written for allow and deny alike — a trail that records only
+    denials cannot answer who did the thing.
+
+    ``resource_param`` names a path parameter to use as the instance-level
+    resource, for endpoints where an explicit grant can apply.
+    """
+
+    async def _dependency(
+        request: Request,
+        authorization: str | None = Header(default=None, alias="Authorization"),
+        settings: Settings = Depends(get_settings),
+        session: AsyncSession = Depends(get_db_session),
+    ) -> Principal:
+        subject = await verify_bearer(authorization, settings)
+
+        store = SqlAlchemyPrincipalStore(session, enforcement_point=ENFORCEMENT_POINT)
+        sink = SqlAlchemyAuditSink(session)
+
+        principal = await store.resolve(subject)
+        roles = await store.load_roles()
+        resource = (
+            str(request.path_params.get(resource_param))
+            if resource_param and resource_param in request.path_params
+            else None
+        )
+        grants = (
+            await store.load_explicit_grants(principal.id)
+            if principal is not None and resource is not None
+            else set()
+        )
+
+        decision = decide(
+            principal, scope, roles, resource=resource, explicit_grants=grants or None
+        )
+
+        await sink.emit_audit(
+            new_audit_event(
+                enforcement_point=ENFORCEMENT_POINT,
+                scope=scope,
+                allowed=decision.allowed,
+                reason=decision.reason,
+                principal=principal,
+                subject=subject,
+                resource=resource,
+                request_id=request.headers.get("X-Request-Id"),
+            )
+        )
+
+        if not decision.allowed:
+            # An unknown-but-validly-authenticated caller is a 403, not a 401:
+            # the credential was good, the ecosystem simply does not know them.
+            raise api_error(403, "forbidden", f"Scope {scope} required")
+
+        assert principal is not None  # noqa: S101 - guaranteed by decision.allowed
+        return principal
+
+    return _dependency

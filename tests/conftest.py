@@ -22,6 +22,9 @@ os.environ.setdefault("CONTACT_FROM_EMAIL", "from@example.com")
 os.environ.setdefault("TURNSTILE_SECRET_KEY", "test-turnstile-secret")
 os.environ.setdefault("CORS_ORIGINS", '["https://kaianolevine.com"]')
 
+from identity.store import IdentityBase  # noqa: E402
+from identity.types import VerifiedSubject  # noqa: E402
+
 from kaianolevine_api import auth as auth_mod  # noqa: E402
 from kaianolevine_api.config import get_settings  # noqa: E402
 from kaianolevine_api.database import get_db_session  # noqa: E402
@@ -47,6 +50,10 @@ async def async_engine():
 async def create_tables(async_engine) -> AsyncIterator[None]:
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # The identity principal store has its own declarative base rather
+        # than grafting itself onto this app's. Creating it is one explicit
+        # extra line, which is the intended trade.
+        await conn.run_sync(IdentityBase.metadata.create_all)
     yield
 
 
@@ -63,6 +70,8 @@ async def reset_db(async_engine) -> AsyncIterator[None]:
         # Delete in reverse dependency order to avoid FK violations.
         for table in reversed(Base.metadata.sorted_tables):
             await conn.execute(table.delete())
+        for table in reversed(IdentityBase.metadata.sorted_tables):
+            await conn.execute(table.delete())
     yield
 
 
@@ -76,8 +85,17 @@ async def client(async_engine) -> AsyncIterator[httpx.AsyncClient]:
         async with sessionmaker() as session:
             yield session
 
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("dev-owner", "jwt"))
+    # Stub step 1 of the contract only. Verification is identity's
+    # responsibility and is tested there; these tests are about this
+    # service's adapters and its routers.
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(
+        return_value=VerifiedSubject(
+            issuer="https://clerk.kaianolevine.com",
+            subject="dev-owner",
+            kind="human",
+        )
+    )
 
     app.dependency_overrides[get_db_session] = override_get_db_session
 
@@ -90,4 +108,12 @@ async def client(async_engine) -> AsyncIterator[httpx.AsyncClient]:
         yield client
 
     app.dependency_overrides.pop(get_db_session, None)
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
+
+
+@pytest.fixture
+async def db_session(async_engine) -> AsyncIterator[AsyncSession]:
+    """A bare session for tests that seed or inspect tables directly."""
+    maker = async_sessionmaker(async_engine, expire_on_commit=False, autoflush=False)
+    async with maker() as session:
+        yield session

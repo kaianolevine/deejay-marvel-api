@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from identity.types import VerifiedSubject
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -16,6 +17,19 @@ from kaianolevine_api.main import app
 from kaianolevine_api.models import WcsEntity, WcsSource, WcsTranscript
 from kaianolevine_api.services import wcs_wiki as wiki_svc
 from tests.test_wcs_sources_endpoint import _create_transcript, _source_payload
+
+
+def _vs(subject: str, kind: str = "human"):
+    """A verified credential, stubbed.
+
+    Verification moved to the identity binding and is tested there; these
+    tests only need step 1 to have produced a subject.
+    """
+    return VerifiedSubject(
+        issuer="https://clerk.kaianolevine.com",
+        subject=subject,
+        kind=kind,  # type: ignore[arg-type]
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -92,16 +106,16 @@ async def test_export_wiki_corpus_returns_full_database(
 
 async def test_export_forbidden_for_jwt_caller(client) -> None:
     """User session JWT (including admin) cannot call the bulk export."""
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("dev-owner", "jwt"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("dev-owner", "human"))
     resp = await client.get("/v1/wcs/wiki/export")
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
     assert resp.status_code == 403
 
 
 async def test_export_forbidden_for_unauthenticated_stranger() -> None:
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -110,7 +124,7 @@ async def test_export_forbidden_for_unauthenticated_stranger() -> None:
     ) as stranger:
         resp = await stranger.get("/v1/wcs/wiki/export")
         assert resp.status_code == 403
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
 
 
 async def test_export_opaque_cog_gets_full_corpus(client) -> None:
@@ -127,8 +141,8 @@ async def test_export_opaque_cog_gets_full_corpus(client) -> None:
     assert create.status_code == 200
     private_id = create.json()["data"]["id"]
 
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("mch_wiki-cog", "opaque"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("mch_wiki-cog", "machine"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -136,7 +150,7 @@ async def test_export_opaque_cog_gets_full_corpus(client) -> None:
         headers={"Authorization": "Bearer opaque-machine-token"},
     ) as cog:
         resp = await cog.get("/v1/wcs/wiki/export")
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
 
     assert resp.status_code == 200
     source_ids = {s["id"] for s in resp.json()["data"]["sources"]}
