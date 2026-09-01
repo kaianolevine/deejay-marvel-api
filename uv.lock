@@ -400,8 +400,8 @@ wheels = [
 
 [[package]]
 name = "common-python-utils"
-version = "2.4.0"
-source = { git = "https://github.com/mini-app-polis/common-python-utils.git?rev=main#c142af4699c429fec3865be4e2d5b76dc04905a1" }
+version = "3.1.0"
+source = { git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v3.1.0#4c0e9510691ac8e611316b654a77154ceeb3738a" }
 dependencies = [
     { name = "google-api-python-client" },
     { name = "google-auth" },
@@ -415,6 +415,7 @@ dependencies = [
     { name = "pyacoustid" },
     { name = "python-dotenv" },
     { name = "spotipy" },
+    { name = "tenacity" },
 ]
 
 [[package]]
@@ -856,6 +857,20 @@ wheels = [
 ]
 
 [[package]]
+name = "identity"
+version = "1.0.1"
+source = { git = "https://github.com/mini-app-polis/identity.git?rev=v1.0.1#f80aa650d8def50238267de4906fcd76c8aaab15" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pyjwt", extra = ["crypto"] },
+]
+
+[package.optional-dependencies]
+store = [
+    { name = "sqlalchemy" },
+]
+
+[[package]]
 name = "idna"
 version = "3.11"
 source = { registry = "https://pypi.org/simple" }
@@ -1001,6 +1016,7 @@ dependencies = [
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "identity", extra = ["store"] },
     { name = "openai" },
     { name = "pgvector" },
     { name = "pydantic" },
@@ -1030,10 +1046,11 @@ requires-dist = [
     { name = "aiosqlite", marker = "extra == 'dev'", specifier = ">=0.20,<1.0" },
     { name = "anthropic", specifier = ">=0.40,<1.0" },
     { name = "asyncpg", specifier = ">=0.29,<1.0" },
-    { name = "common-python-utils", git = "https://github.com/mini-app-polis/common-python-utils.git?rev=main" },
+    { name = "common-python-utils", git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v3.1.0" },
     { name = "cryptography", specifier = ">=42.0,<44.0" },
     { name = "fastapi", specifier = ">=0.110,<1.0" },
     { name = "httpx", specifier = ">=0.27,<1.0" },
+    { name = "identity", extras = ["store"], git = "https://github.com/mini-app-polis/identity.git?rev=v1.0.1" },
     { name = "openai", specifier = ">=1.40,<2.0" },
     { name = "pgvector", specifier = ">=0.3,<1.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.6,<4.0" },
@@ -2011,8 +2028,8 @@ name = "standard-aifc"
 version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "audioop-lts", marker = "python_full_version >= '3.13'" },
-    { name = "standard-chunk", marker = "python_full_version >= '3.13'" },
+    { name = "audioop-lts" },
+    { name = "standard-chunk" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c4/53/6050dc3dde1671eb3db592c13b55a8005e5040131f7509cef0215212cb84/standard_aifc-3.13.0.tar.gz", hash = "sha256:64e249c7cb4b3daf2fdba4e95721f811bde8bdfc43ad9f936589b7bb2fae2e43", size = 15240, upload-time = "2024-10-30T16:01:31.772Z" }
 wheels = [
@@ -2033,7 +2050,7 @@ name = "standard-sunau"
 version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "audioop-lts", marker = "python_full_version >= '3.13'" },
+    { name = "audioop-lts" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/e3/ce8d38cb2d70e05ffeddc28bb09bad77cfef979eb0a299c9117f7ed4e6a9/standard_sunau-3.13.0.tar.gz", hash = "sha256:b319a1ac95a09a2378a8442f403c66f4fd4b36616d6df6ae82b8e536ee790908", size = 9368, upload-time = "2024-10-30T16:01:41.626Z" }
 wheels = [
@@ -2051,6 +2068,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c4/68/79977123bb7be889ad680d79a40f339082c1978b5cfcf62c2d8d196873ac/starlette-0.52.1.tar.gz", hash = "sha256:834edd1b0a23167694292e94f597773bc3f89f362be6effee198165a35d62933", size = 2653702, upload-time = "2026-01-18T13:34:11.062Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/0d/13d1d239a25cbfb19e740db83143e95c772a1fe10202dda4b76792b114dd/starlette-0.52.1-py3-none-any.whl", hash = "sha256:0029d43eb3d273bc4f83a08720b4912ea4b071087a3b48db01b7c839f7954d74", size = 74272, upload-time = "2026-01-18T13:34:09.188Z" },
+]
+
+[[package]]
+name = "tenacity"
+version = "9.1.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz", hash = "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a", size = 49413, upload-time = "2026-02-07T10:45:33.841Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl", hash = "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55", size = 28926, upload-time = "2026-02-07T10:45:32.24Z" },
 ]
 
 [[package]]
