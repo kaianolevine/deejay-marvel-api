@@ -6,11 +6,25 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from identity.types import VerifiedSubject
 from sqlalchemy import text
 
 from kaianolevine_api import auth as auth_mod
 from kaianolevine_api.main import app
 from tests.test_wcs_sources_endpoint import _create_transcript, _source_payload
+
+
+def _vs(subject: str, kind: str = "human"):
+    """A verified credential, stubbed.
+
+    Verification moved to the identity binding and is tested there; these
+    tests only need step 1 to have produced a subject.
+    """
+    return VerifiedSubject(
+        issuer="https://clerk.kaianolevine.com",
+        subject=subject,
+        kind=kind,  # type: ignore[arg-type]
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -206,10 +220,10 @@ async def test_get_source_view(client, seeded_source) -> None:
 
 
 async def test_export_shape(client, seeded_source) -> None:
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("mch_wiki-cog", "opaque"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("mch_wiki-cog", "machine"))
     resp = await client.get("/v1/wcs/wiki/export")
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert "entities" in data
@@ -271,8 +285,8 @@ async def test_admin_list_sources_returns_all(client) -> None:
     assert private_id in admin_ids
     assert public_id in admin_ids
 
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -281,7 +295,7 @@ async def test_admin_list_sources_returns_all(client) -> None:
     ) as stranger:
         forbidden = await stranger.get("/v1/wcs/wiki/admin/sources")
         assert forbidden.status_code == 403
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
 
 
 async def test_admin_get_private_source(client) -> None:
@@ -300,8 +314,8 @@ async def test_admin_get_private_source(client) -> None:
     assert admin_resp.status_code == 200
     assert admin_resp.json()["data"]["source"]["id"] == source_id
 
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -310,7 +324,7 @@ async def test_admin_get_private_source(client) -> None:
     ) as stranger:
         forbidden = await stranger.get(f"/v1/wcs/wiki/admin/sources/{source_id}")
         assert forbidden.status_code == 403
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
 
 
 async def test_admin_caller_scoped_list_matches_regular_user(client) -> None:
@@ -364,8 +378,8 @@ async def test_visibility_filters_private_source(client, async_engine) -> None:
     )
     source_id = create.json()["data"]["id"]
 
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
     async with async_engine.begin() as conn:
         await conn.execute(
             text(
@@ -384,4 +398,4 @@ async def test_visibility_filters_private_source(client, async_engine) -> None:
         assert resp.status_code == 404
         export = await stranger.get("/v1/wcs/wiki/export")
         assert export.status_code == 403  # JWT callers cannot bulk-export
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify

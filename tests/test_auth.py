@@ -1,36 +1,102 @@
-"""Authentication — Clerk JWT verification tests."""
+"""Auth adapters — this service as a conformant identity enforcement point.
+
+Credential verification itself is not tested here any more: it moved to the
+`identity` package and is tested against that package's fixture suite. What
+these cover is what remains this service's responsibility — turning a
+verified subject into a FastAPI dependency result, and running the four
+contract functions in the right order with the right side effects.
+"""
 
 from __future__ import annotations
 
+import uuid
 from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException
+from identity.store import (
+    ExplicitGrant,
+    Issuer,
+    Principal,
+    PrincipalRole,
+    Role,
+    RoleScope,
+)
+from identity.store.models import AuditEventRow
+from identity.types import VerifiedSubject
+from sqlalchemy import select
 
 from kaianolevine_api import auth as auth_mod
 from kaianolevine_api.auth import (
+    get_current_caller,
     get_current_owner,
+    require_scope,
     require_wcs_service,
-    verify_clerk_jwt,
+    verify_bearer,
 )
+
+ISSUER = "https://clerk.kaianolevine.com"
 
 
 class _SettingsShim:
-    """Minimal settings object for unit-testing auth helpers."""
-
-    CLERK_JWKS_URL = "https://example.clerk.accounts.dev/.well-known/jwks.json"
-    CLERK_ISSUER = "https://example.clerk.accounts.dev"
+    CLERK_JWKS_URL = f"{ISSUER}/.well-known/jwks.json"
+    CLERK_ISSUER = ISSUER
     CLERK_SECRET_KEY = "sk_test"
+    CLERK_ISSUERS = None
+
+
+def _subject(sub: str, kind: str = "human") -> VerifiedSubject:
+    return VerifiedSubject(issuer=ISSUER, subject=sub, kind=kind)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# verify_bearer — the 401 boundary
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_valid_jwt_returns_sub(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_verify(token: str, settings: object) -> tuple[str, str] | None:
-        del settings
-        return ("user_123", "jwt") if token == "good" else None
+async def test_missing_authorization_raises_401() -> None:
+    with pytest.raises(HTTPException) as exc:
+        await verify_bearer(None, _SettingsShim())  # type: ignore[arg-type]
+    assert exc.value.status_code == 401
 
-    monkeypatch.setattr(auth_mod, "verify_clerk_jwt", fake_verify)
 
+@pytest.mark.asyncio
+async def test_non_bearer_scheme_raises_401() -> None:
+    with pytest.raises(HTTPException) as exc:
+        await verify_bearer("Basic abc123", _SettingsShim())  # type: ignore[arg-type]
+    assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_unconfigured_service_rejects_rather_than_admits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No configured issuer must fail closed, not open."""
+
+    class _Empty:
+        CLERK_JWKS_URL = None
+        CLERK_ISSUER = None
+        CLERK_SECRET_KEY = None
+        CLERK_ISSUERS = None
+
+    with pytest.raises(HTTPException) as exc:
+        await verify_bearer("Bearer anything", _Empty())  # type: ignore[arg-type]
+    assert exc.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Legacy dependency contracts — unchanged for the nine routers that use them
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_current_owner_returns_issuer_subject(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        auth_mod, "verify_bearer", AsyncMock(return_value=_subject("user_123"))
+    )
     owner = await get_current_owner(
         authorization="Bearer good",
         settings=_SettingsShim(),  # type: ignore[arg-type]
@@ -39,109 +105,173 @@ async def test_valid_jwt_returns_sub(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_authorization_raises_401(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(auth_mod, "verify_clerk_jwt", AsyncMock(return_value=None))
-
-    with pytest.raises(HTTPException) as excinfo:
-        await get_current_owner(
-            authorization=None,
-            settings=_SettingsShim(),  # type: ignore[arg-type]
-        )
-    assert excinfo.value.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_invalid_token_raises_401(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(auth_mod, "verify_clerk_jwt", AsyncMock(return_value=None))
-
-    with pytest.raises(HTTPException) as excinfo:
-        await get_current_owner(
-            authorization="Bearer bad",
-            settings=_SettingsShim(),  # type: ignore[arg-type]
-        )
-    assert excinfo.value.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_verify_clerk_jwt_returns_none_without_config(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class _Empty:
-        CLERK_JWKS_URL = None
-        CLERK_ISSUER = None
-
-    fetch = AsyncMock(side_effect=AssertionError("JWKS must not be fetched"))
-    monkeypatch.setattr(auth_mod, "_fetch_jwks_document", fetch)
-
-    result = await verify_clerk_jwt("any", _Empty())  # type: ignore[arg-type]
-    assert result is None
-    fetch.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_verify_clerk_jwt_opaque_returns_sub_and_kind(
+async def test_get_current_caller_returns_subject_and_kind(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         auth_mod,
-        "_verify_opaque_token",
-        AsyncMock(return_value="mch_wiki-cog"),
+        "verify_bearer",
+        AsyncMock(return_value=_subject("mch_deejay_cog", "machine")),
     )
-
-    result = await verify_clerk_jwt("opaque-token-no-dots", _SettingsShim())  # type: ignore[arg-type]
-    assert result == ("mch_wiki-cog", "opaque")
+    assert await get_current_caller(
+        authorization="Bearer good",
+        settings=_SettingsShim(),  # type: ignore[arg-type]
+    ) == ("mch_deejay_cog", "machine")
 
 
 @pytest.mark.asyncio
-async def test_verify_clerk_jwt_jwt_returns_sub_and_kind(
-    monkeypatch: pytest.MonkeyPatch,
+async def test_require_wcs_service_accepts_machine() -> None:
+    assert await require_wcs_service(("mch_deejay_cog", "machine")) == "mch_deejay_cog"
+
+
+@pytest.mark.asyncio
+async def test_require_wcs_service_rejects_human() -> None:
+    with pytest.raises(HTTPException) as exc:
+        await require_wcs_service(("user_123", "human"))
+    assert exc.value.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# require_scope — all four contract functions
+# ---------------------------------------------------------------------------
+
+
+async def _seed_principal(session, *, subject: str, roles: list[str]) -> uuid.UUID:
+    session.add(Issuer(issuer=ISSUER, jwks_url=f"{ISSUER}/.well-known/jwks.json"))
+    session.add(Role(name="catalog-ingest", description="ingest"))
+    session.add(RoleScope(role_name="catalog-ingest", scope="catalog.sets.write"))
+    session.add(Role(name="wcs-reader", description="read"))
+    session.add(RoleScope(role_name="wcs-reader", scope="wcs.notes.read"))
+    await session.flush()
+
+    pid = uuid.uuid4()
+    session.add(Principal(id=pid, kind="machine", issuer=ISSUER, subject=subject))
+    for r in roles:
+        session.add(PrincipalRole(principal_id=pid, role_name=r))
+    await session.commit()
+    return pid
+
+
+class _Req:
+    """Minimal stand-in for starlette's Request."""
+
+    def __init__(self, path_params: dict | None = None) -> None:
+        self.path_params = path_params or {}
+        self.headers: dict[str, str] = {}
+
+
+@pytest.mark.asyncio
+async def test_require_scope_allows_and_audits(
+    db_session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(auth_mod, "_fetch_jwks_document", AsyncMock(return_value={}))
+    pid = await _seed_principal(
+        db_session, subject="mch_deejay_cog", roles=["catalog-ingest"]
+    )
     monkeypatch.setattr(
         auth_mod,
-        "_decode_clerk_jwt_sync",
-        lambda token, settings, jwks_doc: "user_abc",  # noqa: ARG005
+        "verify_bearer",
+        AsyncMock(return_value=_subject("mch_deejay_cog", "machine")),
     )
 
-    result = await verify_clerk_jwt(
-        "header.payload.sig",
-        _SettingsShim(),  # type: ignore[arg-type]
+    dep = require_scope("catalog.sets.write")
+    principal = await dep(
+        _Req(),  # type: ignore[arg-type]
+        authorization="Bearer good",
+        settings=_SettingsShim(),  # type: ignore[arg-type]
+        session=db_session,
     )
-    assert result == ("user_abc", "jwt")
+    assert principal.id == pid
+
+    rows = (await db_session.execute(select(AuditEventRow))).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].allowed is True
+    assert rows[0].reason == "granted_by_role"
+    assert rows[0].enforcement_point == "api-kaianolevine-com"
 
 
 @pytest.mark.asyncio
-async def test_verify_clerk_jwt_opaque_failure_returns_none(
-    monkeypatch: pytest.MonkeyPatch,
+async def test_require_scope_denies_and_still_audits(
+    db_session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(auth_mod, "_verify_opaque_token", AsyncMock(return_value=None))
-
-    result = await verify_clerk_jwt("bad-opaque", _SettingsShim())  # type: ignore[arg-type]
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_require_wcs_service_accepts_opaque() -> None:
-    caller = await require_wcs_service(("mch_wiki-cog", "opaque"))
-    assert caller == "mch_wiki-cog"
-
-
-@pytest.mark.asyncio
-async def test_require_wcs_service_rejects_jwt() -> None:
-    with pytest.raises(HTTPException) as excinfo:
-        await require_wcs_service(("user_123", "jwt"))
-    assert excinfo.value.status_code == 403
-
-
-@pytest.mark.asyncio
-async def test_flags_list_accessible(client, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Integration: flags endpoint still accessible after auth cleanup."""
+    """A denial must reach the trail. This is the case Keystone never had."""
+    await _seed_principal(db_session, subject="mch_deejay_cog", roles=["wcs-reader"])
     monkeypatch.setattr(
-        auth_mod, "verify_clerk_jwt", AsyncMock(return_value=("dev-owner", "jwt"))
+        auth_mod,
+        "verify_bearer",
+        AsyncMock(return_value=_subject("mch_deejay_cog", "machine")),
     )
+
+    dep = require_scope("catalog.sets.write")
+    with pytest.raises(HTTPException) as exc:
+        await dep(
+            _Req(),  # type: ignore[arg-type]
+            authorization="Bearer good",
+            settings=_SettingsShim(),  # type: ignore[arg-type]
+            session=db_session,
+        )
+    assert exc.value.status_code == 403
+
+    rows = (await db_session.execute(select(AuditEventRow))).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].allowed is False
+    assert rows[0].reason == "no_matching_scope"
+
+
+@pytest.mark.asyncio
+async def test_unknown_principal_is_403_not_401(
+    db_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A valid credential this ecosystem has never seen is authenticated but
+    unknown — a 401 would tell the caller their token was bad, which is false."""
+    monkeypatch.setattr(
+        auth_mod,
+        "verify_bearer",
+        AsyncMock(return_value=_subject("mch_never_seen", "machine")),
+    )
+    dep = require_scope("catalog.sets.write")
+    with pytest.raises(HTTPException) as exc:
+        await dep(
+            _Req(),  # type: ignore[arg-type]
+            authorization="Bearer good",
+            settings=_SettingsShim(),  # type: ignore[arg-type]
+            session=db_session,
+        )
+    assert exc.value.status_code == 403
+
+    rows = (await db_session.execute(select(AuditEventRow))).scalars().all()
+    assert rows[0].reason == "principal_not_found"
+    assert rows[0].subject == "mch_never_seen"
+
+
+@pytest.mark.asyncio
+async def test_explicit_grant_satisfies_resource_scoped_endpoint(
+    db_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid = await _seed_principal(db_session, subject="user_x", roles=[])
+    db_session.add(
+        ExplicitGrant(principal_id=pid, scope="wcs.notes.read", resource="note-42")
+    )
+    await db_session.commit()
+
+    monkeypatch.setattr(
+        auth_mod, "verify_bearer", AsyncMock(return_value=_subject("user_x"))
+    )
+    dep = require_scope("wcs.notes.read", resource_param="note_id")
+    principal = await dep(
+        _Req({"note_id": "note-42"}),  # type: ignore[arg-type]
+        authorization="Bearer good",
+        settings=_SettingsShim(),  # type: ignore[arg-type]
+        session=db_session,
+    )
+    assert principal.id == pid
+
+    rows = (await db_session.execute(select(AuditEventRow))).scalars().all()
+    assert rows[0].reason == "granted_by_explicit_grant"
+    assert rows[0].resource == "note-42"
+
+
+@pytest.mark.asyncio
+async def test_flags_list_accessible(client) -> None:
+    """Integration: the routers that use the legacy dependency still work."""
     r = await client.get("/v1/flags", headers={"Authorization": "Bearer test-token"})
     assert r.status_code == 200

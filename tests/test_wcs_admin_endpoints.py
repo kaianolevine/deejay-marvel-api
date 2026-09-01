@@ -7,11 +7,25 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from identity.types import VerifiedSubject
 from sqlalchemy import text
 
 from kaianolevine_api import auth as auth_mod
 from kaianolevine_api.main import app
 from tests.test_wcs_sources_endpoint import _create_transcript, _source_payload
+
+
+def _vs(subject: str, kind: str = "human"):
+    """A verified credential, stubbed.
+
+    Verification moved to the identity binding and is tested there; these
+    tests only need step 1 to have produced a subject.
+    """
+    return VerifiedSubject(
+        issuer="https://clerk.kaianolevine.com",
+        subject=subject,
+        kind=kind,  # type: ignore[arg-type]
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -28,8 +42,8 @@ async def seed_dev_owner_wcs_admin(reset_db, async_engine) -> None:
 
 @pytest.fixture
 async def stranger_client(client):  # noqa: ARG001
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
     async with httpx.ASGITransport(app=app) as transport:
         async with httpx.AsyncClient(
             transport=transport,
@@ -37,7 +51,7 @@ async def stranger_client(client):  # noqa: ARG001
             headers={"Authorization": "Bearer stranger-token"},
         ) as c:
             yield c
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
 
 
 @pytest.fixture
@@ -290,8 +304,8 @@ async def test_patch_source_visibility_reflects_in_caller_list(client) -> None:
     )
     source_id = create.json()["data"]["id"]
 
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -300,7 +314,7 @@ async def test_patch_source_visibility_reflects_in_caller_list(client) -> None:
     ) as stranger:
         before = await stranger.get("/v1/wcs/wiki/sources?limit=100")
         assert source_id not in {s["id"] for s in before.json()["data"]}
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
 
     patch = await client.patch(
         f"/v1/wcs/admin/sources/{source_id}/visibility",
@@ -309,7 +323,7 @@ async def test_patch_source_visibility_reflects_in_caller_list(client) -> None:
     assert patch.status_code == 200
     assert patch.json()["data"]["is_default_visible"] is True
 
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://testserver",
@@ -317,7 +331,7 @@ async def test_patch_source_visibility_reflects_in_caller_list(client) -> None:
     ) as stranger:
         after = await stranger.get("/v1/wcs/wiki/sources?limit=100")
         assert source_id in {s["id"] for s in after.json()["data"]}
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
 
 
 async def test_patch_source_admin_partial_update(client, source_id: str) -> None:

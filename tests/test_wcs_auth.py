@@ -6,10 +6,24 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from identity.types import VerifiedSubject
 from sqlalchemy import text
 
 from kaianolevine_api import auth as auth_mod
 from kaianolevine_api.main import app
+
+
+def _vs(subject: str, kind: str = "human"):
+    """A verified credential, stubbed.
+
+    Verification moved to the identity binding and is tested there; these
+    tests only need step 1 to have produced a subject.
+    """
+    return VerifiedSubject(
+        issuer="https://clerk.kaianolevine.com",
+        subject=subject,
+        kind=kind,  # type: ignore[arg-type]
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -26,8 +40,8 @@ async def seed_dev_owner_wcs_admin(reset_db, async_engine) -> None:
 
 @pytest.fixture
 async def stranger_client(client):  # noqa: ARG001 — ensures DB override is active
-    original_verify = auth_mod.verify_clerk_jwt
-    auth_mod.verify_clerk_jwt = AsyncMock(return_value=("stranger-user", "jwt"))
+    original_verify = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
@@ -35,7 +49,7 @@ async def stranger_client(client):  # noqa: ARG001 — ensures DB override is ac
         headers={"Authorization": "Bearer stranger-token"},
     ) as c:
         yield c
-    auth_mod.verify_clerk_jwt = original_verify
+    auth_mod.verify_bearer = original_verify
 
 
 async def test_wcs_me_get_returns_profile(client) -> None:

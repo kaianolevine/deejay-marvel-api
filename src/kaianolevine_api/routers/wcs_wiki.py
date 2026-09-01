@@ -247,11 +247,15 @@ async def get_source_admin(
     summary="Bulk export full corpus (cog-only)",
     description=(
         "Returns the entire WCS corpus in one response, regardless of "
-        "per-caller visibility. Cog-only: requires a Clerk M2M opaque "
-        "token (the shared machine secret distributed via Doppler). "
-        "The endpoint's protection is the token-type gate; per-user "
-        "filtering is not applied. Used by wiki-curator-cog to render "
-        "the wiki as a single bundled artifact."
+        "per-caller visibility. Cog-only: requires a Clerk M2M credential "
+        "(the machine secret distributed via Doppler). The endpoint's "
+        "protection is the machine-caller gate; per-user filtering is not "
+        "applied. Used by wiki-curator-cog to render the wiki as a single "
+        "bundled artifact. NOTE: this gate distinguishes machines from "
+        "humans, not one machine from another — every cog still shares one "
+        "machine secret, so any cog can call this. Once the principal store "
+        "is seeded per cog, this should move to a scope check, which is the "
+        "first gate here that would actually be per-caller."
     ),
 )
 async def export_wiki(
