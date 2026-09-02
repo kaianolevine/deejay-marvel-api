@@ -1,3 +1,10 @@
+# [1.46.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.45.2...v1.46.0) (2026-09-02)
+
+
+### Features
+
+* **identity:** enforce a scope on every authenticated endpoint ([819b3dd](https://github.com/mini-app-polis/api-kaianolevine-com/commit/819b3dd19ea523f9d7494cab20e857c78d63d558))
+
 ## [1.45.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.45.1...v1.45.2) (2026-09-02)
 
 
