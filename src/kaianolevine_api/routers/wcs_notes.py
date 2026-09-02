@@ -223,7 +223,7 @@ async def list_notes(
     visibility: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
-    owner_id_principal: Principal = Depends(require_scope("wcs.notes.write")),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsNoteItem]]:
     """List notes visible to the authenticated user.
@@ -276,17 +276,13 @@ async def list_notes(
     response_model=Envelope[list[WcsNoteItem]],
     summary="List all WCS notes",
     description=(
-        "Returns all notes regardless of visibility. Requires a valid "
-        "authenticated identity (any Clerk user or M2M token). "
-        "TODO: tighten this back up once service-account auth lands "
-        "(see issue: M2M credentials for pipeline cogs). The intent is "
-        "for this endpoint to be reachable by both human admins AND "
-        "trusted pipeline cogs (e.g. wiki-curator-cog), but NOT by "
-        "ordinary authenticated users. Today we accept any authenticated "
-        "caller as an interim measure so wiki-curator-cog's backfill "
-        "can run; restore stricter auth (admin OR service-account "
-        "allowlist OR Clerk custom claim) before this API is exposed "
-        "to less-trusted callers."
+        "Returns all notes regardless of visibility. Requires "
+        "`wcs.corpus.read` — held by the `wcs-admin` role (human "
+        "administrators) and the `corpus-reader` role (wiki-curator-cog). "
+        "Deliberately NOT `wcs.notes.read`: every human holds that scope "
+        "by default via `wcs-reader`, and this endpoint bypasses "
+        "per-source visibility, so mapping it there would expose private "
+        "sources to every signed-in user."
     ),
 )
 async def list_all_notes(
@@ -294,7 +290,7 @@ async def list_all_notes(
     visibility: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
-    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
+    owner_id_principal: Principal = Depends(require_scope("wcs.corpus.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsNoteItem]]:
     """List all WCS notes for admin- and pipeline-driven workflows.

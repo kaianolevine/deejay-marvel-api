@@ -212,7 +212,7 @@ async def list_sources(
 async def list_all_sources_admin(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
+    admin_id_principal: Principal = Depends(require_scope("wcs.corpus.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsSourceItem]]:
     """Return every source regardless of visibility (admin catalog)."""
@@ -235,7 +235,7 @@ async def list_all_sources_admin(
 )
 async def get_source_admin(
     source_id: uuid.UUID,
-    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
+    admin_id_principal: Principal = Depends(require_scope("wcs.corpus.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsSourceViewItem]:
     """Return the full wiki view for one source, bypassing visibility checks."""
