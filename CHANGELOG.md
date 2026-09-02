@@ -1,3 +1,10 @@
+## [1.46.4](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.3...v1.46.4) (2026-09-02)
+
+
+### Bug Fixes
+
+* **auth:** restore admin-only access to the four gaps endpoints ([703aa8e](https://github.com/mini-app-polis/api-kaianolevine-com/commit/703aa8ed8d478569de4bcf05e4a6d166bd2a9b6c))
+
 ## [1.46.3](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.2...v1.46.3) (2026-09-02)
 
 

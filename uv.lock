@@ -1007,7 +1007,7 @@ wheels = [
 
 [[package]]
 name = "kaianolevine-api"
-version = "1.46.3"
+version = "1.46.4"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
