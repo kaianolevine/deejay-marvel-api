@@ -1,3 +1,10 @@
+## [1.46.3](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.2...v1.46.3) (2026-09-02)
+
+
+### Bug Fixes
+
+* **auth:** stop granting the unfiltered corpus to every signed-in user ([c5600b6](https://github.com/mini-app-polis/api-kaianolevine-com/commit/c5600b669ad7a13c48d686661e402bb87b51fb69))
+
 ## [1.46.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.1...v1.46.2) (2026-09-02)
 
 
