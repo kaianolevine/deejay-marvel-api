@@ -1,3 +1,15 @@
+# [1.44.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.43.1...v1.44.0) (2026-09-02)
+
+
+### Bug Fixes
+
+* finalizing identity procresses ([ec747d5](https://github.com/mini-app-polis/api-kaianolevine-com/commit/ec747d5660a80155410547a551de79c1947643a2))
+
+
+### Features
+
+* fix api ([954f016](https://github.com/mini-app-polis/api-kaianolevine-com/commit/954f016fb93da0f40ab8d5be6e2c777c244e5f47))
+
 ## [1.43.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.43.0...v1.43.1) (2026-09-01)
 
 
