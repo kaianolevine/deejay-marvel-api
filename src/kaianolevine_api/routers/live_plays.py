@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from identity.types import Principal
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import require_scope
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import LivePlay as DbLivePlay
@@ -29,10 +30,11 @@ router = APIRouter()
 )
 async def ingest_live_plays(
     payload: LivePlaysIngest = Body(..., embed=False),
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("catalog.plays.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[LivePlaysResponseData]:
     """Ingest live-play history rows with idempotent conflict handling."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     if not await is_enabled("flags.deejay_api.live_plays_enabled", session):
         raise HTTPException(

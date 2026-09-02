@@ -94,12 +94,18 @@ async def _create_note(client, transcript_id: str, **overrides) -> dict:
 # ── Auth + plumbing ───────────────────────────────────────────────────────────
 
 
-async def test_refresh_requires_admin(client, async_engine) -> None:
-    """Non-admin caller gets 403."""
+async def test_refresh_requires_the_embeddings_scope(client, async_engine) -> None:
+    """A caller without wcs.embeddings.write gets 403.
+
+    Previously this cleared wcs_user_profiles.is_admin, because that flag was
+    the authority. It no longer is — revoking the role is what removes access,
+    and clearing the flag now changes nothing. That is the intended shift.
+    """
     async with async_engine.begin() as conn:
         await conn.execute(
             text(
-                "UPDATE wcs_user_profiles SET is_admin = 0 WHERE user_id = 'dev-owner'"
+                "DELETE FROM identity_principal_roles WHERE principal_id IN "
+                "(SELECT id FROM identity_principals WHERE subject = 'dev-owner')"
             )
         )
     resp = await client.post("/v1/wcs/embeddings/refresh")

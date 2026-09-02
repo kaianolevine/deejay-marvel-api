@@ -4,10 +4,11 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from identity.types import Principal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import require_scope
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import Set as DbSet
@@ -166,10 +167,11 @@ async def get_catalog(
 async def patch_catalog(
     id: uuid.UUID,
     patch: CatalogPatch,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("catalog.tracks.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[CatalogDetail]:
     """Patch mutable catalog metadata fields for one track."""
+    owner_id = owner_id_principal.subject
     catalog_stmt = select(DbCatalog).where(
         DbCatalog.id == id, DbCatalog.owner_id == owner_id
     )

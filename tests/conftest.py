@@ -138,8 +138,18 @@ DEV_ISSUER = "https://clerk.kaianolevine.com"
 DEV_SUBJECT = "dev-owner"
 
 _DEV_ROLES = {
-    "wcs-admin": ["wcs.notes.read", "wcs.notes.write", "wcs.grants.write"],
+    "wcs-admin": [
+        "wcs.notes.read",
+        "wcs.notes.write",
+        "wcs.grants.write",
+        "wcs.sources.write",
+        "wcs.transcripts.write",
+        "wcs.embeddings.write",
+        "config.flags.write",
+        "wcs.corpus.read",
+    ],
     "wcs-reader": ["wcs.notes.read"],
+    "corpus-reader": ["wcs.notes.read", "wcs.corpus.read"],
     "pipeline-writer": ["pipeline.evaluations.write", "pipeline.findings.write"],
     "catalog-ingest": [
         "catalog.sets.write",

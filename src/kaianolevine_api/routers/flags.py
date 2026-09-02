@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path
+from identity.types import Principal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import require_scope
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import FeatureFlag as DbFeatureFlag
@@ -71,10 +72,11 @@ async def list_flags(
 async def patch_flag(
     name: Annotated[str, Path(min_length=1)],
     payload: FeatureFlagPatch,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("config.flags.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[FeatureFlagItem]:
     """Update a feature flag enabled state by name."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
 
     row = (

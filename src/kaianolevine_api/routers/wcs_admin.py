@@ -5,11 +5,12 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends
+from identity.types import Principal
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import require_wcs_admin
+from ..auth import require_scope
 from ..config import get_settings
 from ..database import get_db_session
 from ..schemas import (
@@ -46,10 +47,11 @@ log = logger_mod.get_logger()
 async def patch_source_default_visibility(
     source_id: uuid.UUID,
     body: WcsSourceDefaultVisiblePatch,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsSourceItem]:
     """Set catalog default visibility for a specific WCS source."""
+    _ = admin_id_principal.subject
     settings = get_settings()
     item = await wiki_svc.patch_source_default_visible(
         session,
@@ -76,10 +78,11 @@ async def patch_source_default_visibility(
 async def patch_source_admin(
     source_id: uuid.UUID,
     body: WcsSourceAdminPatch,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsSourceItem]:
     """Apply a partial admin update to a WCS source's editable fields."""
+    _ = admin_id_principal.subject
     settings = get_settings()
     updates = body.model_dump(exclude_unset=True)
     item = await wiki_svc.patch_source_admin(
@@ -99,10 +102,11 @@ async def patch_source_admin(
 )
 async def create_name_correction(
     payload: WcsNameCorrectionCreate,
-    owner_id: str = Depends(require_wcs_admin),
+    owner_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsAdminCorrectionResult]:
     """Record a name correction and recompose affected sources (deferred when global)."""
+    owner_id = owner_id_principal.subject
     log.info("%s name correction raw=%s", LOG_START, payload.raw_name)
     settings = get_settings()
     row, recomposed, deferred, message = await admin_svc.create_name_correction(
@@ -132,10 +136,11 @@ async def create_name_correction(
 )
 async def create_attribution_correction(
     payload: WcsAttributionCorrectionCreate,
-    owner_id: str = Depends(require_wcs_admin),
+    owner_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsAdminCorrectionResult]:
     """Record an attribution correction and recompose the affected source."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     row, recomposed = await admin_svc.create_attribution_correction(
         session, owner_id, payload
@@ -161,10 +166,11 @@ async def create_attribution_correction(
 )
 async def create_metadata_correction(
     payload: WcsSourceMetadataCorrectionCreate,
-    owner_id: str = Depends(require_wcs_admin),
+    owner_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsAdminCorrectionResult]:
     """Record a source metadata correction and recompose the affected source."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     row, recomposed = await admin_svc.create_metadata_correction(
         session, owner_id, payload
@@ -189,10 +195,11 @@ async def create_metadata_correction(
 )
 async def create_attribution_addition(
     payload: WcsAttributionAdditionCreate,
-    owner_id: str = Depends(require_wcs_admin),
+    owner_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsAdminCorrectionResult]:
     """Append an admin-authored attribution to a source and recompose."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     row, recomposed = await admin_svc.create_attribution_addition(
         session, owner_id, payload
@@ -216,10 +223,11 @@ async def create_attribution_addition(
 )
 async def create_drill_purpose_addition(
     payload: WcsDrillPurposeAdditionCreate,
-    owner_id: str = Depends(require_wcs_admin),
+    owner_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsAdminCorrectionResult]:
     """Append an admin-authored drill-purpose pairing to a source and recompose."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     row, recomposed = await admin_svc.create_drill_purpose_addition(
         session, owner_id, payload
@@ -243,10 +251,11 @@ async def create_drill_purpose_addition(
 )
 async def create_technique_requirement_addition(
     payload: WcsTechniqueRequirementAdditionCreate,
-    owner_id: str = Depends(require_wcs_admin),
+    owner_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsAdminCorrectionResult]:
     """Append an admin-authored technique requirement to a source and recompose."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     row, recomposed = await admin_svc.create_technique_requirement_addition(
         session, owner_id, payload
@@ -270,10 +279,11 @@ async def create_technique_requirement_addition(
 )
 async def create_entity_relation_addition(
     payload: WcsEntityRelationAdditionCreate,
-    owner_id: str = Depends(require_wcs_admin),
+    owner_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsAdminCorrectionResult]:
     """Append an admin-authored entity-to-entity relation to a source and recompose."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     row, recomposed = await admin_svc.create_entity_relation_addition(
         session, owner_id, payload
@@ -299,10 +309,11 @@ async def create_entity_relation_addition(
 )
 async def recompose_source(
     source_id: uuid.UUID,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsRecomposeResult]:
     """Re-run composition for the given source and return the row counts written."""
+    _ = admin_id_principal.subject
     log.info("%s recompose source_id=%s", LOG_START, source_id)
     settings = get_settings()
     composition = await admin_svc.recompose_source(session, source_id)
@@ -333,10 +344,11 @@ async def recompose_source(
     ),
 )
 async def gaps_orphan_entities(
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsGapItem]]:
     """List entities with no attribution rows pointing at them."""
+    _ = admin_id_principal.subject
     settings = get_settings()
     rows = await wiki_svc.list_orphan_entities(session)
     data = [
@@ -358,10 +370,11 @@ async def gaps_orphan_entities(
     ),
 )
 async def gaps_stub_entities(
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsGapItem]]:
     """List entities flagged as stubs or with fewer than two attributions."""
+    _ = admin_id_principal.subject
     settings = get_settings()
     rows = await wiki_svc.list_stub_entities(session)
     data = [
@@ -389,10 +402,11 @@ async def gaps_stub_entities(
     ),
 )
 async def gaps_skills_unpaired(
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsGapItem]]:
     """List skill slugs that appear on only one side of the drill/technique split."""
+    _ = admin_id_principal.subject
     settings = get_settings()
     rows = await wiki_svc.list_unpaired_skill_slugs(session)
     data = [
@@ -415,10 +429,11 @@ async def gaps_skills_unpaired(
     ),
 )
 async def gaps_sources_uncomposed(
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsGapItem]]:
     """List sources with extraction present but no attributions written."""
+    _ = admin_id_principal.subject
     settings = get_settings()
     rows = await wiki_svc.list_uncomposed_sources(session)
     data = [

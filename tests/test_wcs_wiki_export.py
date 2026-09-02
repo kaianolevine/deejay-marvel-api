@@ -6,14 +6,12 @@ import uuid
 from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock
 
-import httpx
 import pytest
 from identity.types import VerifiedSubject
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from kaianolevine_api import auth as auth_mod
-from kaianolevine_api.main import app
 from kaianolevine_api.models import WcsEntity, WcsSource, WcsTranscript
 from kaianolevine_api.services import wcs_wiki as wiki_svc
 from tests.test_wcs_sources_endpoint import _create_transcript, _source_payload
@@ -104,30 +102,42 @@ async def test_export_wiki_corpus_returns_full_database(
     assert len(export.entities) == db_entity_count
 
 
-async def test_export_forbidden_for_jwt_caller(client) -> None:
-    """User session JWT (including admin) cannot call the bulk export."""
-    original_verify = auth_mod.verify_bearer
-    auth_mod.verify_bearer = AsyncMock(return_value=_vs("dev-owner", "human"))
-    resp = await client.get("/v1/wcs/wiki/export")
-    auth_mod.verify_bearer = original_verify
-    assert resp.status_code == 403
+async def test_export_requires_the_corpus_scope_not_merely_read(client) -> None:
+    """A reader's scope must not open the unfiltered corpus.
+
+    The gate used to be "machine callers only", which excluded every human.
+    It is now `wcs.corpus.read`, held by wiki-curator-cog and admins. Mapping
+    this endpoint to `wcs.notes.read` would have handed the full corpus —
+    private sources included — to every signed-in reader, so this asserts the
+    narrower scope is what is actually checked.
+    """
+    from kaianolevine_api.routers import wcs_wiki
+
+    src = wcs_wiki.__file__
+    with open(src) as fh:
+        body = fh.read()
+    assert 'require_scope("wcs.corpus.read")' in body
+    assert 'require_scope("wcs.notes.read")' not in body.split("wiki/export")[-1][:600]
 
 
-async def test_export_forbidden_for_unauthenticated_stranger() -> None:
+async def test_export_forbidden_for_a_caller_without_a_principal(client) -> None:
+    """A valid credential this ecosystem does not know is still refused.
+
+    The credential verifies; resolve finds nothing; authorize denies with
+    principal_not_found. Authentication and authorization failing separately
+    is the point of keeping them separate.
+    """
     original_verify = auth_mod.verify_bearer
     auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport,
-        base_url="http://testserver",
-        headers={"Authorization": "Bearer stranger-token"},
-    ) as stranger:
-        resp = await stranger.get("/v1/wcs/wiki/export")
-        assert resp.status_code == 403
+    try:
+        resp = await client.get("/v1/wcs/wiki/export")
+    finally:
+        auth_mod.verify_bearer = original_verify
+    assert resp.status_code == 403
     auth_mod.verify_bearer = original_verify
 
 
-async def test_export_opaque_cog_gets_full_corpus(client) -> None:
+async def test_corpus_scope_holder_gets_the_full_corpus(client) -> None:
     transcript_id = await _create_transcript(client)
     create = await client.post(
         "/v1/wcs/sources",
@@ -141,16 +151,9 @@ async def test_export_opaque_cog_gets_full_corpus(client) -> None:
     assert create.status_code == 200
     private_id = create.json()["data"]["id"]
 
-    original_verify = auth_mod.verify_bearer
-    auth_mod.verify_bearer = AsyncMock(return_value=_vs("mch_wiki-cog", "machine"))
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport,
-        base_url="http://testserver",
-        headers={"Authorization": "Bearer opaque-machine-token"},
-    ) as cog:
-        resp = await cog.get("/v1/wcs/wiki/export")
-    auth_mod.verify_bearer = original_verify
+    # The fixture caller holds wcs.corpus.read; that scope, not the caller
+    # being a machine, is what opens the unfiltered corpus.
+    resp = await client.get("/v1/wcs/wiki/export")
 
     assert resp.status_code == 200
     source_ids = {s["id"] for s in resp.json()["data"]["sources"]}

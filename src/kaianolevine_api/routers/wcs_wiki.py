@@ -6,11 +6,15 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from identity.types import Principal
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner, require_wcs_admin, require_wcs_service
+from ..auth import (
+    get_current_owner,
+    require_scope,
+)
 from ..config import get_settings
 from ..database import get_db_session
 from ..schemas import (
@@ -119,10 +123,11 @@ _entity_list("drill", "/wcs/wiki/drills")
 )
 async def get_instructor(
     slug: str,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsInstructorViewItem]:
     """Return the full wiki view for one instructor; 404 if the slug is unknown."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     view = await wiki_svc.get_instructor_view(session, owner_id, slug=slug)
     if view is None:
@@ -139,10 +144,11 @@ async def get_instructor(
 async def list_instructors(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    _owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsInstructorItem]]:
     """Return a paginated list of instructors with the total instructor count."""
+    _ = owner_id_principal.subject
     settings = get_settings()
     items, total = await wiki_svc.list_instructors(session, limit=limit, offset=offset)
     return success_envelope(
@@ -158,10 +164,11 @@ async def list_instructors(
 )
 async def get_source(
     source_id: uuid.UUID,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsSourceViewItem]:
     """Return the full wiki view for one source; 404 if the source is not visible to the caller."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     view = await wiki_svc.get_source_view(session, owner_id, source_id=source_id)
     if view is None:
@@ -178,10 +185,11 @@ async def get_source(
 async def list_sources(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsSourceItem]]:
     """Return a paginated list of sources visible to the caller with the total source count."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
     items, total = await wiki_svc.list_sources(
         session, owner_id, limit=limit, offset=offset
@@ -203,10 +211,11 @@ async def list_sources(
 async def list_all_sources_admin(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsSourceItem]]:
     """Return every source regardless of visibility (admin catalog)."""
+    _admin_id = admin_id_principal.subject
     settings = get_settings()
     items, total = await wiki_svc.list_all_sources(session, limit=limit, offset=offset)
     return success_envelope(
@@ -225,10 +234,11 @@ async def list_all_sources_admin(
 )
 async def get_source_admin(
     source_id: uuid.UUID,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsSourceViewItem]:
     """Return the full wiki view for one source, bypassing visibility checks."""
+    _admin_id = admin_id_principal.subject
     settings = get_settings()
     view = await wiki_svc.get_source_view(
         session,
@@ -259,10 +269,11 @@ async def get_source_admin(
     ),
 )
 async def export_wiki(
-    caller_id: str = Depends(require_wcs_service),
+    caller_id_principal: Principal = Depends(require_scope("wcs.corpus.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsWikiExportItem]:
     """Return the full WCS corpus (cog-only, not visibility-filtered)."""
+    caller_id = caller_id_principal.subject
     log.info("%s wiki export caller=%s", LOG_START, caller_id)
     settings = get_settings()
     data = await wiki_svc.export_wiki_corpus(session)

@@ -220,10 +220,9 @@ async def test_get_source_view(client, seeded_source) -> None:
 
 
 async def test_export_shape(client, seeded_source) -> None:
-    original_verify = auth_mod.verify_bearer
-    auth_mod.verify_bearer = AsyncMock(return_value=_vs("mch_wiki-cog", "machine"))
+    # The fixture caller holds wcs.corpus.read; the scope opens the
+    # unfiltered corpus, not the caller being a machine.
     resp = await client.get("/v1/wcs/wiki/export")
-    auth_mod.verify_bearer = original_verify
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert "entities" in data
@@ -386,6 +385,25 @@ async def test_visibility_filters_private_source(client, async_engine) -> None:
                 "INSERT INTO wcs_user_profiles (user_id, email, display_name, is_admin) "
                 "VALUES ('stranger-user', '', '', 0) "
                 "ON CONFLICT (user_id) DO NOTHING"
+            )
+        )
+        # A profile row no longer confers anything; the principal does. This
+        # caller is a legitimate reader who simply cannot see a private
+        # source — 404, not 403. Without the principal the request would be
+        # refused before visibility was ever consulted.
+        await conn.execute(
+            text(
+                "INSERT INTO identity_principals (id, kind, issuer, subject, "
+                "display_name, status) VALUES "
+                "('11111111111141118111111111111111', 'human', "
+                "'https://clerk.kaianolevine.com', 'stranger-user', '', 'active')"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO identity_principal_roles (principal_id, role_name, "
+                "granted_by) VALUES "
+                "('11111111111141118111111111111111', 'wcs-reader', 'test')"
             )
         )
     transport = httpx.ASGITransport(app=app)

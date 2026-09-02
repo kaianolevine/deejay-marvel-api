@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from anthropic import AsyncAnthropic
 from fastapi import APIRouter, Depends
+from identity.types import Principal
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_FAILURE, LOG_START, LOG_SUCCESS
 from pydantic import BaseModel, Field
@@ -21,7 +22,7 @@ from ..agents.wcs_qa.citations import EnrichedCitation
 from ..agents.wcs_qa.config import from_settings as agent_config_from_settings
 from ..agents.wcs_qa.loop import run_agent
 from ..agents.wcs_qa.pricing import compute_cost_usd
-from ..auth import get_current_owner, require_wcs_admin
+from ..auth import require_scope
 from ..config import Settings, get_settings
 from ..database import get_db_session
 from ..retrieval.wcs.convergence import RefreshSummary, refresh_embeddings
@@ -171,12 +172,13 @@ class AskResponse(BaseModel):
     ),
 )
 async def refresh_wcs_embeddings(
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.embeddings.write")),
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings),
     embedder: OpenAIEmbedder = Depends(get_embedder),
 ) -> Envelope[RefreshSummary]:
     """Run the convergence flow synchronously and return counts."""
+    _ = admin_id_principal.subject
     log.info(
         "%s WCS embedding refresh model=%s flat_v=%d chunk_v=%d",
         LOG_START,
@@ -216,13 +218,14 @@ async def refresh_wcs_embeddings(
 )
 async def ask(
     body: AskRequest,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings),
     embedder: OpenAIEmbedder = Depends(get_embedder),
     anthropic_client: AsyncAnthropic = Depends(get_anthropic_client),
 ) -> Envelope[AskResponse]:
     """Run the WCS Q&A agent loop and return its citation-enriched answer."""
+    owner_id = owner_id_principal.subject
     config = agent_config_from_settings(settings)
     log.info(
         "%s WCS Q&A ask owner=%s model=%s q_len=%d budgets=tools:%d/input:%d/output:%d",

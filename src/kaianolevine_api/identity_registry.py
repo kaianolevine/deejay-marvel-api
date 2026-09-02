@@ -100,7 +100,7 @@ MACHINES: tuple[Machine, ...] = (
     ),
     Machine(
         name="wiki-curator-cog",
-        roles=("wcs-reader", "pipeline-writer"),
+        roles=("corpus-reader", "pipeline-writer"),
         notes=(
             "GET /v1/wcs/wiki/export (full corpus, unfiltered) and POST "
             "/v1/evaluations. Reads everything, but reading is not admin: no "

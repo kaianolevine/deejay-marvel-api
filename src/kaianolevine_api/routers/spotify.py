@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends
+from identity.types import Principal
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import require_scope
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import SpotifyPlaylist as DbSpotifyPlaylist
@@ -67,10 +68,11 @@ async def list_spotify_playlists(
 )
 async def ingest_spotify_playlists(
     payload: SpotifyPlaylistsIngest = Body(..., embed=False),
-    _owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("catalog.sets.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[SpotifyPlaylistsIngestResponse]:
     """Upsert Spotify playlist snapshots from ingest payloads."""
+    _ = owner_id_principal.subject
     settings = get_settings()
     tbl = DbSpotifyPlaylist.__table__
 

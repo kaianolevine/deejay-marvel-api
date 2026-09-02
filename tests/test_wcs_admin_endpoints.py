@@ -292,7 +292,9 @@ async def test_admin_endpoints_error_envelope_on_forbidden(stranger_client) -> N
     assert "message" in body["error"]
 
 
-async def test_patch_source_visibility_reflects_in_caller_list(client) -> None:
+async def test_patch_source_visibility_reflects_in_caller_list(
+    client, async_engine
+) -> None:
     transcript_id = await _create_transcript(client)
     create = await client.post(
         "/v1/wcs/sources",
@@ -303,6 +305,27 @@ async def test_patch_source_visibility_reflects_in_caller_list(client) -> None:
         ),
     )
     source_id = create.json()["data"]["id"]
+
+    # The caller in this test is an ordinary reader, not a stranger with no
+    # standing: the point is that a private source is hidden from someone who
+    # may legitimately read, and appears once visibility changes. Without a
+    # principal they are refused before visibility is ever consulted.
+    async with async_engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO identity_principals (id, kind, issuer, subject, "
+                "display_name, status) VALUES "
+                "('22222222222242228222222222222222', 'human', "
+                "'https://clerk.kaianolevine.com', 'stranger-user', '', 'active')"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO identity_principal_roles (principal_id, role_name, "
+                "granted_by) VALUES "
+                "('22222222222242228222222222222222', 'wcs-reader', 'test')"
+            )
+        )
 
     original_verify = auth_mod.verify_bearer
     auth_mod.verify_bearer = AsyncMock(return_value=_vs("stranger-user", "human"))
@@ -351,7 +374,7 @@ async def test_patch_source_admin_partial_update(client, source_id: str) -> None
 
 
 async def test_patch_source_endpoints_forbid_non_admin(
-    stranger_client, source_id: str
+    source_id: str, stranger_client
 ) -> None:
     vis = await stranger_client.patch(
         f"/v1/wcs/admin/sources/{source_id}/visibility",

@@ -46,12 +46,16 @@ from identity.clerk import ClerkIssuer, ClerkVerifier
 from identity.errors import CredentialInvalid, IdentityError, IssuerNotTrusted
 from identity.policy import authorize as decide
 from identity.store import (
+    Issuer,
+    PrincipalRole,
     SqlAlchemyAuditSink,
     SqlAlchemyPrincipalStore,
     new_audit_event,
 )
+from identity.store import Principal as PrincipalRow
 from identity.types import Principal, PrincipalKind, VerifiedSubject
 from mini_app_polis.logger import (
+    LOG_START,
     LOG_WARNING,
     get_logger,
     with_log_prefix,
@@ -253,6 +257,68 @@ async def resolve_principal(
     """
     store = SqlAlchemyPrincipalStore(session, enforcement_point=ENFORCEMENT_POINT)
     return await store.resolve(subject)
+
+
+HUMAN_DEFAULT_ROLE = "wcs-reader"
+
+
+async def provision_human(
+    subject: VerifiedSubject, session: AsyncSession, *, is_admin: bool = False
+) -> Principal | None:
+    """Ensure a signed-in person has a principal. Idempotent.
+
+    Machines are created at boot from the declaration; people cannot be,
+    because the ecosystem does not know a person exists until they sign in.
+    This is the human equivalent of that boot-time step, and it runs from
+    ``POST /v1/wcs/me`` — the endpoint the site already calls on first sight
+    of a user.
+
+    New people get ``wcs-reader`` and nothing else. That fails closed in the
+    direction that gets noticed: a provisioning bug shows up as someone seeing
+    too little, which they report, rather than too much, which nobody does.
+
+    ``is_admin`` mirrors the existing profile flag on first creation only. It
+    is never re-applied, so promoting or demoting someone later is a change to
+    their roles rather than a change to a boolean in another table.
+    """
+    existing = await resolve_principal(subject, session)
+    if existing is not None:
+        return existing
+
+    issuer_row = (
+        (await session.execute(select(Issuer).where(Issuer.issuer == subject.issuer)))
+        .scalars()
+        .first()
+    )
+    if issuer_row is None:
+        logger.warning(
+            with_log_prefix(
+                LOG_WARNING, f"cannot provision: issuer {subject.issuer} unknown"
+            )
+        )
+        return None
+
+    row = PrincipalRow(
+        kind="human",
+        issuer=subject.issuer,
+        subject=subject.subject,
+        display_name=str(subject.claims.get("email") or ""),
+        email=str(subject.claims.get("email") or "") or None,
+    )
+    session.add(row)
+    await session.flush()
+    session.add(
+        PrincipalRole(
+            principal_id=row.id,
+            role_name="wcs-admin" if is_admin else HUMAN_DEFAULT_ROLE,
+            granted_by="provision_human",
+        )
+    )
+    await session.commit()
+    logger.info(
+        with_log_prefix(LOG_START, f"provisioned human principal {subject.subject}")
+    )
+    return await resolve_principal(subject, session)
 
 
 def require_scope(scope: str, *, resource_param: str | None = None):

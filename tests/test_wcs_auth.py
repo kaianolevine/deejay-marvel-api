@@ -132,13 +132,24 @@ async def test_wcs_admin_grant_duplicate_returns_409(client, async_engine) -> No
     assert dup.status_code == 409
 
 
-async def test_get_note_forbidden_for_stranger_without_grant(
-    client, stranger_client, async_engine
-) -> None:
+@pytest.fixture
+async def _hidden_note(client):
+    """Create a non-default-visible note as the normal caller.
+
+    Built in a fixture rather than the test body because stranger_client
+    patches verification for its whole lifetime — anything created after it
+    would be created as the stranger, who has no write scope.
+    """
     from tests.test_wcs_notes import _create_note, _create_transcript  # noqa: PLC0415
 
     tr = await _create_transcript(client)
-    note = await _create_note(client, tr["id"])
+    return await _create_note(client, tr["id"])
+
+
+async def test_get_note_forbidden_for_stranger_without_grant(
+    _hidden_note, stranger_client, async_engine
+) -> None:
+    note = _hidden_note
     assert note["is_default_visible"] is False
 
     upsert = await stranger_client.post(

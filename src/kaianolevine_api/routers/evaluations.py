@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from identity.types import Principal
 from sqlalchemy import case, func, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import require_scope
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import PipelineEvaluation as DbEval
@@ -270,10 +271,13 @@ async def evaluations_summary(
 )
 async def create_evaluation(
     payload: PipelineEvaluationCreate,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(
+        require_scope("pipeline.evaluations.write")
+    ),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[PipelineEvaluationItem]:
     """TODO: describe this function."""
+    owner_id = owner_id_principal.subject
     settings = get_settings()
 
     # Legacy catch-all field intentionally left empty.

@@ -12,12 +12,13 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response, status
+from identity.types import Principal
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy import exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import require_scope
 from ..config import get_settings
 from ..database import get_db_session
 from ..models import LegacyWcsNote as DbNote
@@ -56,7 +57,7 @@ log = logger_mod.get_logger()
 async def create_transcript(
     payload: WcsTranscriptCreate,
     response: Response,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.transcripts.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsTranscriptItem]:
     """Persist a raw WCS transcript, with idempotent re-ingestion.
@@ -69,6 +70,7 @@ async def create_transcript(
     Drive folder — the operator workflow moves processed files out of
     that folder, so a file reappearing there means "process this again."
     """
+    owner_id = owner_id_principal.subject
     log.info(
         "%s storing transcript source_filename=%s", LOG_START, payload.source_filename
     )
@@ -143,10 +145,11 @@ async def create_transcript(
 )
 async def create_note(
     payload: WcsNoteCreate,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteItem]:
     """Persist one structured WCS note linked to a transcript."""
+    owner_id = owner_id_principal.subject
     log.info(
         "%s storing note transcript_id=%s session_type=%s",
         LOG_START,
@@ -218,13 +221,14 @@ async def list_notes(
     visibility: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsNoteItem]]:
     """List notes visible to the authenticated user.
 
     Reads _legacy_wcs_notes; superseded by GET /v1/wcs/wiki/sources.
     """
+    owner_id = owner_id_principal.subject
     settings = get_settings()
 
     # Standard user filtering — no admin bypass.
@@ -288,7 +292,7 @@ async def list_all_notes(
     visibility: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
-    _owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsNoteItem]]:
     """List all WCS notes for admin- and pipeline-driven workflows.
@@ -304,6 +308,7 @@ async def list_all_notes(
 
     Reads _legacy_wcs_notes; superseded by GET /v1/wcs/wiki/admin/sources.
     """
+    _ = owner_id_principal.subject
     settings = get_settings()
 
     stmt = (
@@ -340,13 +345,14 @@ async def list_all_notes(
 )
 async def get_note(
     note_id: uuid.UUID,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteItem]:
     """Return one note when the caller has visibility access.
 
     Reads _legacy_wcs_notes; superseded by GET /v1/wcs/wiki/sources/{id}.
     """
+    owner_id = owner_id_principal.subject
     settings = get_settings()
 
     result = await session.execute(select(DbNote).where(DbNote.id == note_id))
@@ -375,13 +381,14 @@ async def get_note(
 async def patch_note(
     note_id: uuid.UUID,
     payload: WcsNotePatch,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteItem]:
     """Update user-facing visibility for one owned note.
 
     Reads _legacy_wcs_notes; superseded by substrate wiki/admin endpoints.
     """
+    owner_id = owner_id_principal.subject
     settings = get_settings()
 
     result = await session.execute(

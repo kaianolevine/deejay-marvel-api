@@ -42,11 +42,12 @@ a status field on wcs_source_extractions to track composition state.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from identity.types import Principal
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_FAILURE, LOG_START, LOG_SUCCESS
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner
+from ..auth import require_scope
 from ..config import get_settings
 from ..database import get_db_session
 from ..schemas import (
@@ -81,10 +82,11 @@ log = logger_mod.get_logger()
 )
 async def create_source(
     payload: WcsSourceCreate,
-    owner_id: str = Depends(get_current_owner),
+    owner_id_principal: Principal = Depends(require_scope("wcs.sources.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsSourceItem]:
     """Ingest one source and its active extraction."""
+    owner_id = owner_id_principal.subject
     log.info(
         "%s ingest source transcript_id=%s",
         LOG_START,

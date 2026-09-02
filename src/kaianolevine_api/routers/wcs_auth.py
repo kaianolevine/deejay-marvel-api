@@ -6,15 +6,17 @@ import datetime as dt
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Header, Query, Response, status
+from identity.types import Principal
 from mini_app_polis import logger as logger_mod
 from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import get_current_owner, require_wcs_admin
-from ..config import get_settings
+from .. import auth
+from ..auth import get_current_owner, require_scope
+from ..config import Settings, get_settings
 from ..database import get_db_session
 from ..models import LegacyWcsNote as DbNote
 from ..models import WcsNoteGrant, WcsUserProfile
@@ -51,10 +53,20 @@ log = logger_mod.get_logger()
 )
 async def upsert_wcs_me(
     body: WcsMeUpsert,
-    owner_id: str = Depends(get_current_owner),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    settings: Settings = Depends(get_settings),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsUserProfileOut]:
-    """Upsert the caller's WCS profile and refresh last_seen_at."""
+    """Upsert the caller's WCS profile, and provision their principal.
+
+    Deliberately NOT scope-guarded. This is where a person first becomes known
+    to the ecosystem, so requiring a scope to reach it would mean needing a
+    principal in order to get one. Every other authenticated endpoint checks a
+    scope; this is the bootstrap, and authentication alone is the right bar
+    for it.
+    """
+    subject = await auth.verify_bearer(authorization, settings)
+    owner_id = subject.subject
     log.info("%s upsert WCS profile user_id=%s", LOG_START, owner_id)
     result = await session.execute(
         select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
@@ -76,6 +88,11 @@ async def upsert_wcs_me(
         profile.last_seen_at = now
 
     await session.commit()
+
+    # Mirror the profile into the principal store. is_admin seeds the initial
+    # grant on creation only — after that, roles are the authority and this
+    # flag stops deciding anything.
+    await auth.provision_human(subject, session, is_admin=bool(profile.is_admin))
     await session.refresh(profile)
     log.info("%s WCS profile upserted user_id=%s", LOG_SUCCESS, owner_id)
 
@@ -121,10 +138,11 @@ async def get_wcs_me(
     description="Admin-only. Lists all WCS user profiles by last_seen_at descending.",
 )
 async def list_wcs_users(
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.grants.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsUserProfileOut]]:
     """List all WCS user profiles for admin review."""
+    _ = admin_id_principal.subject
     settings = get_settings()
     result = await session.execute(
         select(WcsUserProfile).order_by(WcsUserProfile.last_seen_at.desc())
@@ -145,10 +163,11 @@ async def list_wcs_users(
 async def patch_wcs_user(
     user_id: str,
     body: WcsUserProfilePatch,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.grants.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsUserProfileOut]:
     """Patch editable WCS user profile fields as an admin."""
+    _ = admin_id_principal.subject
     settings = get_settings()
     result = await session.execute(
         select(WcsUserProfile).where(WcsUserProfile.user_id == user_id)
@@ -182,10 +201,11 @@ async def patch_wcs_user(
 async def list_wcs_grants(
     user_id: Annotated[str | None, Query()] = None,
     note_id: Annotated[uuid.UUID | None, Query()] = None,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.grants.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsNoteGrantOut]]:
     """TODO: describe this function."""
+    _ = admin_id_principal.subject
     settings = get_settings()
     stmt = select(WcsNoteGrant).order_by(WcsNoteGrant.granted_at.desc())
     if user_id:
@@ -210,10 +230,11 @@ async def list_wcs_grants(
 )
 async def create_wcs_grant(
     body: WcsNoteGrantCreate,
-    admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.grants.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteGrantOut]:
     """Create a note grant linking a user to a WCS note."""
+    admin_id = admin_id_principal.subject
     settings = get_settings()
     grant = WcsNoteGrant(
         user_id=body.user_id,
@@ -249,10 +270,11 @@ async def create_wcs_grant(
 )
 async def delete_wcs_grant(
     grant_id: uuid.UUID,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.grants.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Response:
     """Delete a single WcsNoteGrant by id. Admin-only; returns 204 on success."""
+    _ = admin_id_principal.subject
     result = await session.execute(
         select(WcsNoteGrant).where(WcsNoteGrant.id == grant_id)
     )
@@ -277,13 +299,14 @@ async def delete_wcs_grant(
 async def patch_wcs_note_default_visibility(
     note_id: uuid.UUID,
     body: WcsNoteDefaultVisiblePatch,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.notes.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteItem]:
     """Set catalog default visibility for a specific WCS note.
 
     Reads _legacy_wcs_notes; superseded by PATCH /v1/wcs/admin/sources/{id}/visibility.
     """
+    _ = admin_id_principal.subject
     settings = get_settings()
     result = await session.execute(select(DbNote).where(DbNote.id == note_id))
     note = result.scalars().first()
@@ -319,13 +342,14 @@ async def patch_wcs_note_default_visibility(
 async def patch_wcs_note_admin(
     note_id: uuid.UUID,
     body: WcsNoteAdminPatch,
-    _admin_id: str = Depends(require_wcs_admin),
+    admin_id_principal: Principal = Depends(require_scope("wcs.notes.write")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[WcsNoteItem]:
     """Apply a partial admin update to a WCS note's editable fields.
 
     Reads _legacy_wcs_notes; superseded by PATCH /v1/wcs/admin/sources/{id}.
     """
+    _ = admin_id_principal.subject
     settings = get_settings()
     result = await session.execute(select(DbNote).where(DbNote.id == note_id))
     note = result.scalars().first()
