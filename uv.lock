@@ -858,8 +858,8 @@ wheels = [
 
 [[package]]
 name = "identity"
-version = "1.1.0"
-source = { git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.0#60cc1c4303a038b928ab7bb3fac4b8e3594fa53b" }
+version = "1.1.1"
+source = { git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.1#39bef463c3990be78c7dafe7c506efec46b23dcc" }
 dependencies = [
     { name = "httpx" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -1050,7 +1050,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=42.0,<44.0" },
     { name = "fastapi", specifier = ">=0.110,<1.0" },
     { name = "httpx", specifier = ">=0.27,<1.0" },
-    { name = "identity", extras = ["store"], git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.0" },
+    { name = "identity", extras = ["store"], git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.1" },
     { name = "openai", specifier = ">=1.40,<2.0" },
     { name = "pgvector", specifier = ">=0.3,<1.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.6,<4.0" },

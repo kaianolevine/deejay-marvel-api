@@ -16,9 +16,9 @@ they do not hold, no store contents. Requiring a scope to discover your own
 identity would make it useless for the case it exists to serve: a caller that
 has no principal yet.
 
-Read-only. Machines are provisioned inline on any request that names them
-(``X-Machine-Name``), so there is exactly one code path that binds a name and
-it is not this one.
+Read-only, and the only place a caller can inspect its own identity. Machine
+principals come from ``identity_registry.MACHINES`` at boot, so nothing here
+creates or changes one.
 """
 
 from __future__ import annotations
