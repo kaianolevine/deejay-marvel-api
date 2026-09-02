@@ -1,8 +1,10 @@
 """WCS notes router — /v1/wcs/transcripts and /v1/wcs/notes endpoints.
 
-Write endpoints (POST) are called by notes-ingest-cog via X-Internal-API-Key.
-Read endpoints (GET) are called by wcs.kaianolevine.com.
-PATCH is for user-facing visibility toggling.
+Write endpoints (POST) are called by transcription-cog, which authenticates
+with its own named machine key and holds the wcs-writer role; each route
+names the scope it requires. Read endpoints (GET) are called by
+wcs.kaianolevine.com on a Clerk session. PATCH is for user-facing
+visibility toggling.
 """
 
 from __future__ import annotations
@@ -50,7 +52,7 @@ log = logger_mod.get_logger()
     response_model=Envelope[WcsTranscriptItem],
     summary="Store a raw WCS transcript",
     description=(
-        "Called by notes-ingest-cog to persist the raw transcript text. "
+        "Called by transcription-cog to persist the raw transcript text. "
         "Returns the transcript ID used to associate structured notes."
     ),
 )
@@ -139,7 +141,7 @@ async def create_transcript(
     response_model=Envelope[WcsNoteItem],
     summary="Store structured WCS notes",
     description=(
-        "Called by notes-ingest-cog to persist structured notes produced by the LLM. "
+        "Called by transcription-cog to persist structured notes produced by the LLM. "
         "Requires a valid transcript_id from POST /v1/wcs/transcripts."
     ),
 )

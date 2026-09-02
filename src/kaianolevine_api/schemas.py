@@ -587,7 +587,7 @@ WcsVisibility = Literal["private", "public"]
 
 
 class WcsTranscriptCreate(BaseModel):
-    """POST /v1/wcs/transcripts — called by notes-ingest-cog."""
+    """POST /v1/wcs/transcripts — called by transcription-cog."""
 
     raw_text: str = Field(..., description="Semantic value for raw text.")
     source_type: WcsSourceType = Field(
@@ -612,7 +612,7 @@ class WcsTranscriptItem(BaseModel):
 
 
 class WcsNoteCreate(BaseModel):
-    """POST /v1/wcs/notes — called by notes-ingest-cog."""
+    """POST /v1/wcs/notes — called by transcription-cog."""
 
     transcript_id: str = Field(..., description="Semantic value for transcript id.")
     title: str | None = Field(default=None, description="Title value for this record.")
