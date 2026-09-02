@@ -1,3 +1,10 @@
+# [1.45.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.44.0...v1.45.0) (2026-09-02)
+
+
+### Features
+
+* **identity:** declare all five cogs and add the wcs-writer role ([45fa008](https://github.com/mini-app-polis/api-kaianolevine-com/commit/45fa00836d4a286cc847ed13ba7b61c2582d206c))
+
 # [1.44.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.43.1...v1.44.0) (2026-09-02)
 
 
