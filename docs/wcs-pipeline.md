@@ -303,7 +303,7 @@ Used by the wiki renderer.
 
 - `GET /v1/wcs/wiki/export` — bulk export of the entire canonical graph in one response.
 
-Gated on `require_wcs_service` (token-type gate: any caller presenting a valid Clerk M2M opaque token is by construction a cog and granted access). Not visibility-filtered. The renderer needs the full corpus to project the canonical graph as markdown.
+Gated on `require_scope("wcs.corpus.read")`, held by the `corpus-reader` role. Not visibility-filtered — the renderer needs the full corpus to project the canonical graph as markdown, which is exactly why it does not map to `wcs.notes.read`: every `wcs-reader` holds that scope, and this endpoint bypasses per-source visibility. It replaced `require_wcs_service`, a token-type gate that granted access to any caller merely for being a machine.
 
 ---
 

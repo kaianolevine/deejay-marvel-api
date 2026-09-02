@@ -129,27 +129,81 @@ Use flags for safe rollout and fast rollback without redeploying:
 
 Designed for Railway.
 
-## Authentication
+## Authentication and authorization
 
-Owner identity is resolved from a Clerk bearer token via
-`src/kaianolevine_api/auth.py`. The `get_current_owner` dependency
-accepts either:
+This service is a conformant enforcement point for the `identity`
+contract. It binds four functions — verify, resolve, authorize,
+emit_audit — once per request, in `src/kaianolevine_api/auth.py`. The
+decision itself lives in `identity.policy`; what stays here is
+configuration and the FastAPI adapters.
 
-- **Clerk session JWTs** (human users) — RS256, verified locally against
-  the JWKS document fetched from `CLERK_JWKS_URL` (cached for 5 minutes).
-- **Clerk M2M opaque tokens** (cogs) — verified via the Clerk BAPI
-  their own named API key, matched locally against configuration.
+### Credentials
+
+One `Authorization: Bearer <credential>` header carries either of two
+credential types, routed structurally by dot count:
+
+- **Clerk session JWTs** (people) — two dots. RS256, verified in process
+  against the issuer's JWKS document. The `sub` claim is the principal
+  subject.
+- **Named machine keys** (cogs) — anything else. An opaque per-machine
+  string, compared in constant time against the keys this service holds
+  in its own environment. The matched key *names* the caller, so no
+  machine name is ever asserted in a request. Verification is local:
+  nothing leaves the process.
+
+There is no fallback between the two paths. A credential that fails the
+path it routed to is rejected, not retried against the other. Clerk M2M
+opaque tokens and `CLERK_SECRET_KEY` were removed outright — see
+ecosystem-standards ADR-008 and CD-019.
 
 Required environment variables:
 
-- `CLERK_JWKS_URL` — e.g. `https://clerk.kaianolevine.com/.well-known/jwks.json`
-- `CLERK_ISSUER` — e.g. `https://clerk.kaianolevine.com`
-- `<MACHINE_NAME>_API_KEY` — one per declared machine (see `identity_registry.MACHINES`)
+- `CLERK_ISSUER` and `CLERK_JWKS_URL` — or `CLERK_ISSUERS`, a JSON array
+  of `{issuer, jwks_url}`, when more than one Clerk tenant is trusted.
+- `<MACHINE_NAME>_API_KEY` — one per machine declared in
+  `identity_registry.MACHINES` (`deejay-cog` → `DEEJAY_COG_API_KEY`).
+  Doppler-managed. Key material is never stored in the database, hashed
+  or otherwise; the principal store holds names and grants only.
 
-Header parity is maintained with
-`mini_app_polis.api.KaianoApiClient`: the client attaches
-`Authorization: Bearer <token>` acquired from Clerk and this module
-verifies tokens arriving in that same header.
+Machine principals and their roles are declared in code and reconciled
+into the store at boot. Adding a cog is a reviewed code change, not a
+row inserted by hand.
+
+### Route coverage
+
+Every route is in exactly one of three states:
+
+- **Scope-guarded** (51) — `Depends(require_scope("<domain>.<resource>.<action>"))`.
+  Roles are named bundles of scopes; a suspended principal is denied
+  before roles are consulted.
+- **Authenticated-only** (3) — a verified credential, no scope. This is
+  the whole list: `POST /v1/wcs/me` (where a person first becomes known,
+  so it cannot require a principal in order to grant one), `GET /v1/wcs/me`
+  (reads only the caller's own profile), and `GET /v1/identity/whoami`
+  (reports what verify and resolve saw, and authorizes nothing).
+- **Public** (22) — see below.
+
+Every decision is audited, allow and deny alike, with the enforcement
+point, principal, scope, outcome and reason.
+
+### Public surface
+
+Deliberately unauthenticated, per API-008 / DOC-011:
+
+| Routes | Why |
+|---|---|
+| `GET /v1/sets`, `/v1/sets/{id}`, `/v1/sets/{id}/tracks`, `/v1/tracks`, `/v1/tracks/{id}`, `/v1/catalog`, `/v1/catalog/{id}` | Public catalog reads backing the website. |
+| `GET /v1/stats/overview`, `/v1/stats/by-year`, `/v1/stats/top-artists`, `/v1/stats/top-tracks`, `/v1/spotify/playlists`, `/v1/live-plays/recent` | Public aggregate reads backing the website. |
+| `GET /v1/evaluations`, `/v1/evaluations/summary`, `/v1/flags` | Pipeline Health and feature flags — read-only, no per-owner content. |
+| `POST /v1/contact` | Contact form. CORS + Turnstile gated rather than credential gated. |
+| `GET /v1/resume` | Public resume proxy. |
+| `POST /v1/prefect-webhook` | Prefect flow state callbacks. Reviewed and accepted as unauthenticated. |
+| `GET /health`, `GET /version`, `GET /` | Platform endpoints. `/` redirects to `/docs`. |
+
+Client parity is maintained with `mini_app_polis.api.KaianoApiClient`,
+which derives the caller's own key variable from its machine name and
+sets the same header this module reads. The two must change in the same
+release (AUTH-002) — a mismatch 401s every cog at once.
 
 ## Observability
 
