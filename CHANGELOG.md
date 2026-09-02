@@ -1,3 +1,10 @@
+## [1.45.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.45.1...v1.45.2) (2026-09-02)
+
+
+### Bug Fixes
+
+* **deps:** pin identity v1.1.1 ([7920cdf](https://github.com/mini-app-polis/api-kaianolevine-com/commit/7920cdf693bacc057adb807d2fdcd84e234d1156))
+
 ## [1.45.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.45.0...v1.45.1) (2026-09-02)
 
 
