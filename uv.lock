@@ -400,8 +400,8 @@ wheels = [
 
 [[package]]
 name = "common-python-utils"
-version = "3.1.0"
-source = { git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v3.1.0#4c0e9510691ac8e611316b654a77154ceeb3738a" }
+version = "3.1.1"
+source = { git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v3.1.1#95c51a5d6966bf96be70df7284d50d9dc80623d1" }
 dependencies = [
     { name = "google-api-python-client" },
     { name = "google-auth" },
@@ -858,8 +858,8 @@ wheels = [
 
 [[package]]
 name = "identity"
-version = "1.0.1"
-source = { git = "https://github.com/mini-app-polis/identity.git?rev=v1.0.1#f80aa650d8def50238267de4906fcd76c8aaab15" }
+version = "1.0.2"
+source = { git = "https://github.com/mini-app-polis/identity.git?rev=v1.0.2#9c1a833aba00ed8eb437211dd22b4dca1f431c91" }
 dependencies = [
     { name = "httpx" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -1046,11 +1046,11 @@ requires-dist = [
     { name = "aiosqlite", marker = "extra == 'dev'", specifier = ">=0.20,<1.0" },
     { name = "anthropic", specifier = ">=0.40,<1.0" },
     { name = "asyncpg", specifier = ">=0.29,<1.0" },
-    { name = "common-python-utils", git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v3.1.0" },
+    { name = "common-python-utils", git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v3.1.1" },
     { name = "cryptography", specifier = ">=42.0,<44.0" },
     { name = "fastapi", specifier = ">=0.110,<1.0" },
     { name = "httpx", specifier = ">=0.27,<1.0" },
-    { name = "identity", extras = ["store"], git = "https://github.com/mini-app-polis/identity.git?rev=v1.0.1" },
+    { name = "identity", extras = ["store"], git = "https://github.com/mini-app-polis/identity.git?rev=v1.0.2" },
     { name = "openai", specifier = ">=1.40,<2.0" },
     { name = "pgvector", specifier = ">=0.3,<1.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.6,<4.0" },

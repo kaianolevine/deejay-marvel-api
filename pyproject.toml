@@ -57,8 +57,8 @@ ignore = ["E501"]
 quote-style = "double"
 
 [tool.uv.sources]
-common-python-utils = { git = "https://github.com/mini-app-polis/common-python-utils.git", rev = "v3.1.0" }
-identity = { git = "https://github.com/mini-app-polis/identity.git", rev = "v1.0.1" }
+common-python-utils = { git = "https://github.com/mini-app-polis/common-python-utils.git", rev = "v3.1.1" }
+identity = { git = "https://github.com/mini-app-polis/identity.git", rev = "v1.0.2" }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
