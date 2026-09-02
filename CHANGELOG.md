@@ -1,3 +1,10 @@
+## [1.46.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.0...v1.46.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **auth:** remove the Clerk machine path and its dead guards ([7f9cad0](https://github.com/mini-app-polis/api-kaianolevine-com/commit/7f9cad074b66e60d1124b96f6e1b575acb89fadc))
+
 # [1.46.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.45.2...v1.46.0) (2026-09-02)
 
 
