@@ -295,7 +295,7 @@ Used by the admin portal pages.
 - `GET /v1/wcs/wiki/admin/sources` — full source list, no visibility filter.
 - `GET /v1/wcs/wiki/admin/sources/{id}` — one source view, no visibility filter.
 
-Gated on `require_wcs_admin`.
+Gated on `require_scope("wcs.corpus.read")`, held by `wcs-admin` and `corpus-reader`. Deliberately not `wcs.notes.read`: that is the only scope in `wcs-reader`, the default role every human is provisioned with, so guarding a visibility-bypassing route on it grants the full corpus — private sources included — to every signed-in user.
 
 ### Service-scoped (full corpus, cog identity)
 

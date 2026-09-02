@@ -8,8 +8,8 @@ Routes are mounted at `/v1` (see `main.py`):
 
 | Method | Path | Auth | Purpose |
 | ------ | ---- | ---- | ------- |
-| `POST` | `/v1/wcs/embeddings/refresh` | WCS admin (`require_wcs_admin`) | Run the embedding convergence flow synchronously; returns counts of notes/transcripts embedded vs skipped. |
-| `POST` | `/v1/wcs/ask` | Authenticated owner (`get_current_owner`) | Single-turn Q&A: run the agent loop and return answer + enriched citations + usage/cost. |
+| `POST` | `/v1/wcs/embeddings/refresh` | `wcs.embeddings.write` (`wcs-admin`, `wcs-writer`) | Run the embedding convergence flow synchronously; returns counts of notes/transcripts embedded vs skipped. |
+| `POST` | `/v1/wcs/ask` | `wcs.notes.read` (every human, via `wcs-reader`) | Single-turn Q&A: run the agent loop and return answer + enriched citations + usage/cost. Retrieval is visibility-filtered per caller. |
 
 **Ask request body:** `{ "question": "<string, 1–5000 chars>" }` — no conversation history in v1.
 
