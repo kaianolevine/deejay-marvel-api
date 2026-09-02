@@ -83,14 +83,38 @@ class Machine:
 # ---------------------------------------------------------------------------
 
 MACHINES: tuple[Machine, ...] = (
-    # deejay-cog is the first cog with its own Clerk machine. Every other cog
-    # still shares `miniappolis-cogs`, which is why the audit trail can say a
-    # cog called but not which one. They move over one at a time, each by
-    # adding an entry here and calling POST /v1/identity/register once.
     Machine(
         name="deejay-cog",
         roles=("catalog-ingest",),
-        notes="Ingests DJ sets, tracks and live plays.",
+        notes="POST /v1/ingest, /v1/live-plays, /v1/spotify/playlists.",
+    ),
+    Machine(
+        name="transcription-cog",
+        roles=("wcs-writer", "pipeline-writer"),
+        notes="POST /v1/wcs/sources, /v1/wcs/transcripts, /v1/evaluations.",
+    ),
+    Machine(
+        name="evaluator-cog",
+        roles=("pipeline-writer", "catalog-ingest", "wcs-writer"),
+        notes="POST /v1/pipeline, /v1/evaluations, /v1/catalog, /v1/wcs/admin/notes.",
+    ),
+    Machine(
+        name="wiki-curator-cog",
+        roles=("wcs-reader", "pipeline-writer"),
+        notes=(
+            "GET /v1/wcs/wiki/export (full corpus, unfiltered) and POST "
+            "/v1/evaluations. Reads everything, but reading is not admin: no "
+            "wcs.grants.write."
+        ),
+    ),
+    # watcher-cog polls Drive and calls no API endpoint. It is declared so it
+    # has an identity if that ever changes, and holds no roles because it
+    # needs none — a principal that can do nothing is the correct state for a
+    # caller that asks for nothing.
+    Machine(
+        name="watcher-cog",
+        roles=(),
+        notes="Polls Drive. Makes no API calls today.",
     ),
 )
 
@@ -102,6 +126,10 @@ def machine_keys(env: Mapping[str, str]) -> list[MachineKey]:
     cannot authenticate. That is the safe reading of a missing secret: the
     alternative — treating it as an empty key — would match a caller sending
     nothing at all.
+
+    Machines declared with no roles are still given keys. A principal that can
+    do nothing is the right state for a caller that asks for nothing, and it
+    means the identity exists the moment that changes.
     """
     keys: list[MachineKey] = []
     for machine in MACHINES:

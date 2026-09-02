@@ -76,21 +76,35 @@ ENFORCEMENT_POINT = "api-kaianolevine-com"
 
 
 def _issuers_from_settings(settings: Settings) -> list[ClerkIssuer]:
-    """Trusted human issuers.
+    """Trusted Clerk issuers.
 
     Multi-issuer via ``CLERK_ISSUERS`` (a JSON array of
-    ``{issuer, jwks_url}``); the singular ``CLERK_ISSUER`` / ``CLERK_JWKS_URL``
-    vars remain the one-tenant shorthand this service deploys with.
+    ``{issuer, jwks_url, secret_key}``); the singular ``CLERK_ISSUER`` /
+    ``CLERK_JWKS_URL`` / ``CLERK_SECRET_KEY`` vars remain the one-tenant
+    shorthand this service deploys with.
+
+    ``secret_key`` is what lets Clerk verify an opaque M2M token, and it is
+    still required: cogs that have not yet been given their own API key
+    authenticate that way. Dropping it 401s every one of them.
     """
     raw = getattr(settings, "CLERK_ISSUERS", None)
     if raw:
         entries = json.loads(raw) if isinstance(raw, str) else raw
         return [
-            ClerkIssuer(issuer=e["issuer"], jwks_url=e["jwks_url"]) for e in entries
+            ClerkIssuer(
+                issuer=e["issuer"],
+                jwks_url=e["jwks_url"],
+                secret_key=e.get("secret_key"),
+            )
+            for e in entries
         ]
     if settings.CLERK_ISSUER and settings.CLERK_JWKS_URL:
         return [
-            ClerkIssuer(issuer=settings.CLERK_ISSUER, jwks_url=settings.CLERK_JWKS_URL)
+            ClerkIssuer(
+                issuer=settings.CLERK_ISSUER,
+                jwks_url=settings.CLERK_JWKS_URL,
+                secret_key=settings.CLERK_SECRET_KEY,
+            )
         ]
     return []
 
@@ -120,10 +134,13 @@ def get_verifier(settings: Settings | None = None) -> ChainVerifier:
     """Return the process verifier, rebuilt when configuration changes."""
     settings = settings or get_settings()
     issuers = _issuers_from_settings(settings)
+    # Keyed on configuration identity only. Enumerating machine keys here
+    # would re-read the environment — and re-log its warnings — on every
+    # request; the declaration and the environment both change only on deploy.
     key = json.dumps(
         {
-            "issuers": [[i.issuer, i.jwks_url] for i in issuers],
-            "machines": sorted(m.name for m in registry.machine_keys(os.environ)),
+            "issuers": [[i.issuer, i.jwks_url, bool(i.secret_key)] for i in issuers],
+            "machines": [m.name for m in registry.MACHINES],
         },
         sort_keys=True,
     )
