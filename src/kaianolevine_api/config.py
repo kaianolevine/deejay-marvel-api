@@ -19,9 +19,6 @@ class Settings(BaseSettings):
     # Logging
     LOGGING_LEVEL: str = "INFO"
 
-    # Owner identity for legacy X-Owner-Id auth path (Project Keystone Phase 1)
-    KAIANO_API_OWNER_ID: str | None = None
-
     # HTTP client timeouts — override to 0 in tests for fast failure
     HTTP_CLIENT_TIMEOUT_SECS: float = 10.0
 
@@ -30,9 +27,10 @@ class Settings(BaseSettings):
     CLERK_ISSUER: str | None = None
 
     # Multi-issuer form, used by the identity binding. JSON array of
-    # {issuer, jwks_url, secret_key}. When unset, the three singular vars
-    # above are read as the one-tenant shorthand. The two Clerk tenants are
-    # separate products and are never merged into one issuer.
+    # {issuer, jwks_url}. When unset, the two singular vars above are read
+    # as the one-tenant shorthand. The two Clerk tenants are separate
+    # products and are never merged into one issuer. No secret key: machines
+    # hold their own named API keys and never authenticate through Clerk.
     CLERK_ISSUERS: str | None = None
 
     # Contact form
