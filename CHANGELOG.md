@@ -1,3 +1,10 @@
+## [1.45.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.45.0...v1.45.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **deps:** relock identity v1.1.0 and common-python-utils v3.2.0 ([d856380](https://github.com/mini-app-polis/api-kaianolevine-com/commit/d856380096a7560b362c7ec47c1f673ee07d975c))
+
 # [1.45.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.44.0...v1.45.0) (2026-09-02)
 
 
