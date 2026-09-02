@@ -162,6 +162,11 @@ async def seed_identity(session: AsyncSession) -> None:
                 jwks_url=f"{DEV_ISSUER}/.well-known/jwks.json",
             )
         )
+    # Machines authenticate with named keys, not through an issuer with a JWKS.
+    if (
+        await session.execute(select(Issuer).where(Issuer.issuer == "apikey"))
+    ).scalars().first() is None:
+        session.add(Issuer(issuer="apikey", jwks_url=None))
     for name, scopes in _DEV_ROLES.items():
         if (
             await session.execute(select(Role).where(Role.name == name))

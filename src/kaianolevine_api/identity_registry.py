@@ -21,21 +21,24 @@ Two deliberate limits on what reconciliation touches:
     A role granted by hand for a one-off is left alone rather than being
     quietly reverted by the next unrelated deploy.
 
-Machines are declared by **name**, never by Clerk id. The name is the thing a
-human knows; the id is Clerk's business and nobody should have to go find it.
+Machines are declared by **name**, and the name is the whole identity. Each
+holds an API key of its own, kept in deployment configuration, and presenting
+that key is what proves the name. Nothing is asserted by the caller and
+nothing has to be discovered at runtime, so every declared machine's principal
+can exist before it ever makes a request.
 
-A machine binds its own id by calling ``POST /v1/identity/register`` with its
-name and its own credential. The subject is taken from the verified token, so
-the binding is established by the machine that holds the secret rather than
-typed in by a person. Once bound it is recorded, and a different subject
-claiming the same name is refused rather than silently rebinding it.
+Key material is never stored here or in the database. This file says which
+machines exist and what they may do; configuration says what proves them.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 
+from identity.apikey import API_KEY_ISSUER, MachineKey
+from identity.store import Issuer as IssuerRow
 from identity.store import Principal as PrincipalRow
 from identity.store import PrincipalRole
 from identity.store import Role as RoleRow
@@ -47,7 +50,9 @@ _log = logging.getLogger(__name__)
 #: Marks role grants this module owns. Reconciliation only removes these.
 GRANTED_BY = "identity_registry"
 
-ISSUER_COGS = "https://clerk.kaianolevine.com"
+#: Issuer recorded for key-authenticated machines. Humans keep the Clerk
+#: issuer; the store is multi-issuer by design so both live in one table.
+ISSUER_MACHINES = API_KEY_ISSUER
 
 
 @dataclass(frozen=True)
@@ -61,8 +66,16 @@ class Machine:
 
     name: str
     roles: tuple[str, ...]
-    issuer: str = ISSUER_COGS
     notes: str = ""
+
+    @property
+    def key_env_var(self) -> str:
+        """Environment variable holding this machine's key.
+
+        Derived from the name so there is one convention rather than a second
+        thing to declare and keep in step: ``deejay-cog`` -> ``DEEJAY_COG_API_KEY``.
+        """
+        return f"{self.name.upper().replace('-', '_')}_API_KEY"
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +95,28 @@ MACHINES: tuple[Machine, ...] = (
 )
 
 
+def machine_keys(env: Mapping[str, str]) -> list[MachineKey]:
+    """Read each declared machine's key from configuration.
+
+    A machine whose variable is absent or blank yields no key, so it simply
+    cannot authenticate. That is the safe reading of a missing secret: the
+    alternative — treating it as an empty key — would match a caller sending
+    nothing at all.
+    """
+    keys: list[MachineKey] = []
+    for machine in MACHINES:
+        value = (env.get(machine.key_env_var) or "").strip()
+        if value:
+            keys.append(MachineKey(name=machine.name, key=value))
+        else:
+            _log.warning(
+                "[identity] %s has no %s; it cannot authenticate",
+                machine.name,
+                machine.key_env_var,
+            )
+    return keys
+
+
 def declared(name: str) -> Machine | None:
     """The declared machine with this name, or None if it is not declared.
 
@@ -96,25 +131,42 @@ def declared(name: str) -> Machine | None:
 
 
 async def reconcile(session: AsyncSession) -> dict[str, int]:
-    """Sync declared roles onto machines that have registered. Idempotent.
+    """Make the store match the declaration. Idempotent, runs on every boot.
 
-    Runs on every boot. It does not create principals — a principal needs a
-    Clerk subject, and only the machine holding the secret can supply that, by
-    registering. What this does is keep the *grants* equal to what the file
-    declares, so adding or removing a role is a deploy and nothing more.
+    With named keys a machine's identity is knowable from this file alone —
+    the name *is* the subject — so principals are created here rather than
+    discovered when a cog first calls. Every declared machine exists before it
+    makes a request, and there is no first-request special case to get wrong.
 
-    A declared machine that has never registered simply has no row yet, which
-    is not an error: it means that cog has not been given its secret and
-    started up. It will pick up its roles on the deploy after it registers,
-    or immediately, since registration grants declared roles itself.
+    Only machines are touched, and only grants this module made itself. A
+    role granted by hand for a one-off survives; a person's access is never
+    altered by a deploy.
 
     Never raises into startup: failing to grant is already fail-closed, since
     an ungranted principal is denied by the ordinary authorization path.
     """
-    granted = revoked = 0
+    created = granted = revoked = 0
     by_name = {m.name: m for m in MACHINES}
 
     known_roles = set((await session.execute(select(RoleRow.name))).scalars().all())
+
+    if MACHINES:
+        issuer = (
+            (
+                await session.execute(
+                    select(IssuerRow).where(IssuerRow.issuer == ISSUER_MACHINES)
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if issuer is None:
+            _log.error(
+                "[identity] issuer %r is missing; run the migration that adds it",
+                ISSUER_MACHINES,
+            )
+            return {"created": 0, "granted": 0, "revoked": 0}
+
     for machine in MACHINES:
         missing = set(machine.roles) - known_roles
         if missing:
@@ -126,22 +178,31 @@ async def reconcile(session: AsyncSession) -> dict[str, int]:
                 machine.name,
                 sorted(missing),
             )
+            continue
 
-    machine_rows = (
-        (
-            await session.execute(
-                select(PrincipalRow).where(PrincipalRow.kind == "machine")
+        row = (
+            (
+                await session.execute(
+                    select(PrincipalRow).where(
+                        PrincipalRow.issuer == ISSUER_MACHINES,
+                        PrincipalRow.subject == machine.name,
+                    )
+                )
             )
+            .scalars()
+            .first()
         )
-        .scalars()
-        .all()
-    )
 
-    for row in machine_rows:
-        machine = by_name.get(row.display_name)
-        wanted: set[str] = set()
-        if machine is not None and not (set(machine.roles) - known_roles):
-            wanted = set(machine.roles)
+        if row is None:
+            row = PrincipalRow(
+                kind="machine",
+                issuer=ISSUER_MACHINES,
+                subject=machine.name,
+                display_name=machine.name,
+            )
+            session.add(row)
+            await session.flush()
+            created += 1
 
         current = {
             name: by
@@ -154,7 +215,7 @@ async def reconcile(session: AsyncSession) -> dict[str, int]:
             ).all()
         }
 
-        for name in wanted - set(current):
+        for name in set(machine.roles) - set(current):
             session.add(
                 PrincipalRole(
                     principal_id=row.id, role_name=name, granted_by=GRANTED_BY
@@ -162,11 +223,8 @@ async def reconcile(session: AsyncSession) -> dict[str, int]:
             )
             granted += 1
 
-        # Only ever remove grants this module made. A role granted by hand for
-        # a one-off is left alone rather than quietly reverted by the next
-        # unrelated deploy.
         for name, granted_by in current.items():
-            if name not in wanted and granted_by == GRANTED_BY:
+            if name not in machine.roles and granted_by == GRANTED_BY:
                 stale = (
                     (
                         await session.execute(
@@ -183,5 +241,36 @@ async def reconcile(session: AsyncSession) -> dict[str, int]:
                     await session.delete(stale)
                     revoked += 1
 
+    # A machine removed from the file loses the roles this module gave it. The
+    # principal row is left in place so the audit trail still resolves.
+    for row in (
+        (
+            await session.execute(
+                select(PrincipalRow).where(
+                    PrincipalRow.kind == "machine",
+                    PrincipalRow.issuer == ISSUER_MACHINES,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    ):
+        if row.subject in by_name:
+            continue
+        for stale in (
+            (
+                await session.execute(
+                    select(PrincipalRole).where(
+                        PrincipalRole.principal_id == row.id,
+                        PrincipalRole.granted_by == GRANTED_BY,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        ):
+            await session.delete(stale)
+            revoked += 1
+
     await session.commit()
-    return {"granted": granted, "revoked": revoked}
+    return {"created": created, "granted": granted, "revoked": revoked}

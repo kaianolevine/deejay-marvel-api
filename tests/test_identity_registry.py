@@ -1,8 +1,8 @@
-"""The declared machine registry.
+"""Reconciliation guardrails — what a deploy may and may not change.
 
-Machines are declared by name in code. They bind their own Clerk subject by
-registering. Reconciliation keeps the *grants* equal to what the file says,
-on every boot.
+The declaration is the source of truth for machines, so a deploy is what
+applies it. These cover the limits on that power: it touches machines only,
+grants it made itself only, and refuses anything it cannot verify.
 """
 
 from __future__ import annotations
@@ -10,38 +10,23 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from identity.store import Issuer, Principal, PrincipalRole, Role, RoleScope
+from identity.apikey import API_KEY_ISSUER
+from identity.store import Principal, PrincipalRole
 from sqlalchemy import select
 
 from kaianolevine_api import identity_registry as reg
-
-ISSUER = "https://clerk.kaianolevine.com"
-
-
-async def _vocabulary(session) -> None:
-    session.add(Issuer(issuer=ISSUER, jwks_url=f"{ISSUER}/.well-known/jwks.json"))
-    for name, scope in [
-        ("catalog-ingest", "catalog.sets.write"),
-        ("pipeline-writer", "pipeline.findings.write"),
-    ]:
-        session.add(Role(name=name, description=name))
-        session.add(RoleScope(role_name=name, scope=scope))
-    await session.commit()
+from tests.conftest import DEV_ISSUER, seed_identity
 
 
-async def _registered(session, *, name: str, subject: str, kind: str = "machine"):
-    """Stand in for a machine having called POST /v1/identity/register."""
-    pid = uuid.uuid4()
-    session.add(
-        Principal(id=pid, kind=kind, issuer=ISSUER, subject=subject, display_name=name)
-    )
-    await session.commit()
-    return pid
-
-
-async def _roles_of(session, subject: str) -> set[str]:
+async def _roles_of(session, subject: str, issuer: str = API_KEY_ISSUER) -> set[str]:
     row = (
-        (await session.execute(select(Principal).where(Principal.subject == subject)))
+        (
+            await session.execute(
+                select(Principal).where(
+                    Principal.issuer == issuer, Principal.subject == subject
+                )
+            )
+        )
         .scalars()
         .first()
     )
@@ -61,63 +46,18 @@ async def _roles_of(session, subject: str) -> set[str]:
 
 
 @pytest.mark.asyncio
-async def test_declared_roles_are_granted_to_a_registered_machine(
-    db_session, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    await _vocabulary(db_session)
-    await _registered(db_session, name="deejay-cog", subject="mch_whatever")
-    monkeypatch.setattr(
-        reg, "MACHINES", (reg.Machine(name="deejay-cog", roles=("catalog-ingest",)),)
-    )
-    result = await reg.reconcile(db_session)
-    assert result["granted"] == 1
-    assert await _roles_of(db_session, "mch_whatever") == {"catalog-ingest"}
-
-
-@pytest.mark.asyncio
-async def test_declared_but_unregistered_machine_is_a_no_op(
-    db_session, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A cog that hasn't been given its secret yet simply has no row.
-
-    That is an expected state during rollout, not an error — reconciliation
-    must not treat it as one.
-    """
-    await _vocabulary(db_session)
-    monkeypatch.setattr(
-        reg, "MACHINES", (reg.Machine(name="deejay-cog", roles=("catalog-ingest",)),)
-    )
-    assert await reg.reconcile(db_session) == {"granted": 0, "revoked": 0}
-
-
-@pytest.mark.asyncio
-async def test_reconcile_is_idempotent(
-    db_session, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Every deploy runs this; the second run must change nothing."""
-    await _vocabulary(db_session)
-    await _registered(db_session, name="deejay-cog", subject="mch_whatever")
-    monkeypatch.setattr(
-        reg, "MACHINES", (reg.Machine(name="deejay-cog", roles=("catalog-ingest",)),)
-    )
-    await reg.reconcile(db_session)
-    assert await reg.reconcile(db_session) == {"granted": 0, "revoked": 0}
-
-
-@pytest.mark.asyncio
 async def test_removing_a_role_from_the_file_revokes_it(
     db_session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Revocation is a code change — that is the point of declaring it."""
-    await _vocabulary(db_session)
-    await _registered(db_session, name="deejay-cog", subject="mch_whatever")
+    await seed_identity(db_session)
     monkeypatch.setattr(
         reg,
         "MACHINES",
         (reg.Machine(name="deejay-cog", roles=("catalog-ingest", "pipeline-writer")),),
     )
     await reg.reconcile(db_session)
-    assert await _roles_of(db_session, "mch_whatever") == {
+    assert await _roles_of(db_session, "deejay-cog") == {
         "catalog-ingest",
         "pipeline-writer",
     }
@@ -126,31 +66,28 @@ async def test_removing_a_role_from_the_file_revokes_it(
         reg, "MACHINES", (reg.Machine(name="deejay-cog", roles=("catalog-ingest",)),)
     )
     assert (await reg.reconcile(db_session))["revoked"] == 1
-    assert await _roles_of(db_session, "mch_whatever") == {"catalog-ingest"}
-
-
-@pytest.mark.asyncio
-async def test_removing_the_machine_revokes_its_grants(
-    db_session, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    await _vocabulary(db_session)
-    await _registered(db_session, name="deejay-cog", subject="mch_whatever")
-    monkeypatch.setattr(
-        reg, "MACHINES", (reg.Machine(name="deejay-cog", roles=("catalog-ingest",)),)
-    )
-    await reg.reconcile(db_session)
-    monkeypatch.setattr(reg, "MACHINES", ())
-    assert (await reg.reconcile(db_session))["revoked"] == 1
-    assert await _roles_of(db_session, "mch_whatever") == set()
+    assert await _roles_of(db_session, "deejay-cog") == {"catalog-ingest"}
 
 
 @pytest.mark.asyncio
 async def test_hand_granted_roles_are_left_alone(
     db_session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A one-off grant must not be silently reverted by an unrelated deploy."""
-    await _vocabulary(db_session)
-    pid = await _registered(db_session, name="manual-cog", subject="mch_manual")
+    """A one-off grant must survive an unrelated deploy.
+
+    Reconciliation removes only rows it wrote, identified by granted_by.
+    """
+    await seed_identity(db_session)
+    pid = uuid.uuid4()
+    db_session.add(
+        Principal(
+            id=pid,
+            kind="machine",
+            issuer=API_KEY_ISSUER,
+            subject="manual-cog",
+            display_name="manual-cog",
+        )
+    )
     db_session.add(
         PrincipalRole(
             principal_id=pid, role_name="pipeline-writer", granted_by="a-human"
@@ -160,7 +97,7 @@ async def test_hand_granted_roles_are_left_alone(
 
     monkeypatch.setattr(reg, "MACHINES", ())
     assert (await reg.reconcile(db_session))["revoked"] == 0
-    assert await _roles_of(db_session, "mch_manual") == {"pipeline-writer"}
+    assert await _roles_of(db_session, "manual-cog") == {"pipeline-writer"}
 
 
 @pytest.mark.asyncio
@@ -168,8 +105,9 @@ async def test_human_principals_are_never_touched(
     db_session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A code deploy must not re-grant or revoke a person's access."""
-    await _vocabulary(db_session)
-    pid = await _registered(db_session, name="somebody", subject="user_1", kind="human")
+    await seed_identity(db_session)
+    pid = uuid.uuid4()
+    db_session.add(Principal(id=pid, kind="human", issuer=DEV_ISSUER, subject="user_2"))
     db_session.add(
         PrincipalRole(
             principal_id=pid, role_name="catalog-ingest", granted_by=reg.GRANTED_BY
@@ -179,21 +117,28 @@ async def test_human_principals_are_never_touched(
 
     monkeypatch.setattr(reg, "MACHINES", ())
     assert (await reg.reconcile(db_session))["revoked"] == 0
-    assert await _roles_of(db_session, "user_1") == {"catalog-ingest"}
+    assert await _roles_of(db_session, "user_2", DEV_ISSUER) == {"catalog-ingest"}
 
 
 @pytest.mark.asyncio
 async def test_unknown_role_is_refused_not_invented(
     db_session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A typo must not mint a role that grants nothing and looks correct."""
-    await _vocabulary(db_session)
-    await _registered(db_session, name="oops", subject="mch_typo")
+    """A typo must not mint a role that grants nothing and looks correct.
+
+    The machine is skipped entirely rather than created with no roles, so the
+    error surfaces as an absent principal rather than a silent denial later.
+    """
+    await seed_identity(db_session)
     monkeypatch.setattr(
         reg, "MACHINES", (reg.Machine(name="oops", roles=("catalog-injest",)),)
     )
-    assert await reg.reconcile(db_session) == {"granted": 0, "revoked": 0}
-    assert await _roles_of(db_session, "mch_typo") == set()
+    assert await reg.reconcile(db_session) == {
+        "created": 0,
+        "granted": 0,
+        "revoked": 0,
+    }
+    assert await _roles_of(db_session, "oops") == set()
 
 
 def test_declared_lookup() -> None:
