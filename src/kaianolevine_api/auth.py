@@ -19,9 +19,22 @@ audit, once per request. The earlier dependencies it replaced
 gone — they encoded authority in a boolean column and in the shape of a token,
 which is what roles and scopes now express properly.
 
-``get_current_owner`` survives for ``/v1/wcs/me`` alone. That endpoint is
-where a person first becomes known, so it cannot require a principal in order
-to grant one; authentication is the right bar there and nowhere else.
+Three routes are authenticated-only — a verified credential, no scope — and
+this is the whole list (ecosystem-standards AUTH-003):
+
+  POST /v1/wcs/me         where a person first becomes known. It cannot
+                          require a principal in order to grant one.
+  GET  /v1/wcs/me         reads only the caller's own profile, via
+                          ``get_current_owner``, which survives for these
+                          two and nowhere else.
+  GET  /v1/identity/whoami  reports what verify and resolve saw about the
+                          caller and authorizes nothing. Requiring a scope
+                          to discover your own identity would make it
+                          useless for the case it exists to serve: a caller
+                          that has no principal yet.
+
+Any route added to that list needs a reason of the same shape — requiring a
+scope would be circular — and needs adding here.
 """
 
 from __future__ import annotations

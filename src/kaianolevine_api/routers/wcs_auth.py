@@ -47,7 +47,8 @@ log = logger_mod.get_logger()
     response_model=Envelope[WcsUserProfileOut],
     summary="Upsert WCS user profile",
     description=(
-        "Upsert a WCS user profile for the authenticated Clerk user (X-Owner-Id). "
+        "Upsert a WCS user profile for the caller identified by their Clerk "
+        "session credential. "
         "Creates the row if missing; updates email, display_name, and last_seen_at."
     ),
 )
