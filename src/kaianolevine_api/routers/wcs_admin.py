@@ -344,7 +344,7 @@ async def recompose_source(
     ),
 )
 async def gaps_orphan_entities(
-    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
+    admin_id_principal: Principal = Depends(require_scope("wcs.corpus.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsGapItem]]:
     """List entities with no attribution rows pointing at them."""
@@ -370,7 +370,7 @@ async def gaps_orphan_entities(
     ),
 )
 async def gaps_stub_entities(
-    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
+    admin_id_principal: Principal = Depends(require_scope("wcs.corpus.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsGapItem]]:
     """List entities flagged as stubs or with fewer than two attributions."""
@@ -402,7 +402,7 @@ async def gaps_stub_entities(
     ),
 )
 async def gaps_skills_unpaired(
-    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
+    admin_id_principal: Principal = Depends(require_scope("wcs.corpus.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsGapItem]]:
     """List skill slugs that appear on only one side of the drill/technique split."""
@@ -429,7 +429,7 @@ async def gaps_skills_unpaired(
     ),
 )
 async def gaps_sources_uncomposed(
-    admin_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
+    admin_id_principal: Principal = Depends(require_scope("wcs.corpus.read")),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[list[WcsGapItem]]:
     """List sources with extraction present but no attributions written."""

@@ -34,11 +34,20 @@ CORPUS_ROUTES = [
     "/v1/wcs/notes/all",
     "/v1/wcs/wiki/admin/sources",
     "/v1/wcs/wiki/export",
+    # The gaps endpoints enumerate the whole substrate and discard the
+    # principal entirely (`_ = admin_id_principal.subject`), so there is no
+    # per-caller filtering behind the scope check.
+    "/v1/wcs/admin/gaps/orphan-entities",
+    "/v1/wcs/admin/gaps/stub-entities",
+    "/v1/wcs/admin/gaps/skills-unpaired",
+    "/v1/wcs/admin/gaps/sources-uncomposed",
 ]
 
 
 @pytest.fixture
-async def reader_client(client, db_session: AsyncSession) -> AsyncIterator[httpx.AsyncClient]:
+async def reader_client(
+    client, db_session: AsyncSession
+) -> AsyncIterator[httpx.AsyncClient]:
     """A real, provisioned human holding only the default reader role."""
     principal = Principal(
         kind="human", issuer=ISSUER, subject=READER_SUBJECT, display_name="reader"
@@ -54,7 +63,9 @@ async def reader_client(client, db_session: AsyncSession) -> AsyncIterator[httpx
 
     original = auth_mod.verify_bearer
     auth_mod.verify_bearer = AsyncMock(
-        return_value=VerifiedSubject(issuer=ISSUER, subject=READER_SUBJECT, kind="human")
+        return_value=VerifiedSubject(
+            issuer=ISSUER, subject=READER_SUBJECT, kind="human"
+        )
     )
     async with httpx.ASGITransport(app=app) as transport:
         async with httpx.AsyncClient(
