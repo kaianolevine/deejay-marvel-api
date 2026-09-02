@@ -13,23 +13,15 @@ lives in ``identity.clerk``; the decision lives in ``identity.policy``; the
 store lives in ``identity.store``. What remains here is what the contract says
 should remain in a service: configuration, and thin FastAPI adapters.
 
-Two paths coexist during migration, deliberately:
+``require_scope(...)`` is the only guard: verify, resolve, authorize, emit
+audit, once per request. The earlier dependencies it replaced
+(``get_current_caller``, ``require_wcs_admin``, ``require_wcs_service``) are
+gone — they encoded authority in a boolean column and in the shape of a token,
+which is what roles and scopes now express properly.
 
-  * The legacy dependencies (``get_current_owner``, ``get_current_caller``,
-    ``require_wcs_admin``, ``require_wcs_service``) keep their exact return
-    contracts, so the nine routers that depend on them are unchanged. They now
-    verify through the identity binding rather than through inline code, so
-    there is one verification implementation, not two.
-
-  * ``require_scope(...)`` is the identity-native path: verify, resolve,
-    authorize, emit audit — all four functions, per request. New endpoints
-    should use it; existing ones move over one at a time.
-
-One behavioural change worth naming: ``require_wcs_service`` previously
-accepted only M2M *opaque* tokens and rejected M2M *JWTs*, because the
-opaque/JWT split was standing in for machine/human. The identity binding
-classifies by subject instead, so an M2M JWT is now correctly treated as a
-machine caller. This is the intent the old code was approximating.
+``get_current_owner`` survives for ``/v1/wcs/me`` alone. That endpoint is
+where a person first becomes known, so it cannot require a principal in order
+to grant one; authentication is the right bar there and nowhere else.
 """
 
 from __future__ import annotations
@@ -53,7 +45,7 @@ from identity.store import (
     new_audit_event,
 )
 from identity.store import Principal as PrincipalRow
-from identity.types import Principal, PrincipalKind, VerifiedSubject
+from identity.types import Principal, VerifiedSubject
 from mini_app_polis.logger import (
     LOG_START,
     LOG_WARNING,
@@ -66,7 +58,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import identity_registry as registry
 from .config import Settings, get_settings
 from .database import get_db_session
-from .models import WcsUserProfile
 from .schemas import api_error
 
 logger = get_logger()
@@ -83,13 +74,12 @@ def _issuers_from_settings(settings: Settings) -> list[ClerkIssuer]:
     """Trusted Clerk issuers.
 
     Multi-issuer via ``CLERK_ISSUERS`` (a JSON array of
-    ``{issuer, jwks_url, secret_key}``); the singular ``CLERK_ISSUER`` /
-    ``CLERK_JWKS_URL`` / ``CLERK_SECRET_KEY`` vars remain the one-tenant
-    shorthand this service deploys with.
+    ``{issuer, jwks_url}``); the singular ``CLERK_ISSUER`` /
+    ``CLERK_JWKS_URL`` vars remain the one-tenant shorthand this service
+    deploys with.
 
-    ``secret_key`` is what lets Clerk verify an opaque M2M token, and it is
-    still required: cogs that have not yet been given their own API key
-    authenticate that way. Dropping it 401s every one of them.
+    No secret key: machines hold their own API keys and never authenticate
+    through Clerk, so the only thing needed from an issuer is its JWKS.
     """
     raw = getattr(settings, "CLERK_ISSUERS", None)
     if raw:
@@ -98,7 +88,6 @@ def _issuers_from_settings(settings: Settings) -> list[ClerkIssuer]:
             ClerkIssuer(
                 issuer=e["issuer"],
                 jwks_url=e["jwks_url"],
-                secret_key=e.get("secret_key"),
             )
             for e in entries
         ]
@@ -107,7 +96,6 @@ def _issuers_from_settings(settings: Settings) -> list[ClerkIssuer]:
             ClerkIssuer(
                 issuer=settings.CLERK_ISSUER,
                 jwks_url=settings.CLERK_JWKS_URL,
-                secret_key=settings.CLERK_SECRET_KEY,
             )
         ]
     return []
@@ -143,7 +131,7 @@ def get_verifier(settings: Settings | None = None) -> ChainVerifier:
     # request; the declaration and the environment both change only on deploy.
     key = json.dumps(
         {
-            "issuers": [[i.issuer, i.jwks_url, bool(i.secret_key)] for i in issuers],
+            "issuers": [[i.issuer, i.jwks_url] for i in issuers],
             "machines": [m.name for m in registry.MACHINES],
         },
         sort_keys=True,
@@ -198,46 +186,6 @@ async def get_current_owner(
     """
     subject = await verify_bearer(authorization, settings)
     return subject.subject
-
-
-async def get_current_caller(
-    authorization: str | None = Header(default=None, alias="Authorization"),
-    settings: Settings = Depends(get_settings),
-) -> tuple[str, PrincipalKind]:
-    """Return ``(subject, kind)`` where kind is ``human`` or ``machine``."""
-    subject = await verify_bearer(authorization, settings)
-    return subject.subject, subject.kind
-
-
-async def require_wcs_admin(
-    owner_id: str = Depends(get_current_owner),
-    session: AsyncSession = Depends(get_db_session),
-) -> str:
-    """Ensure the caller is a WCS admin.
-
-    Still reads ``wcs_user_profiles.is_admin`` rather than resolving a
-    principal. Migration 023 backfills those same humans into the principal
-    store with a ``wcs-admin`` role, so this dependency can move to
-    ``require_scope("wcs.notes.write")`` once the store is populated in
-    production — but flipping it before then would lock out every admin.
-    """
-    result = await session.execute(
-        select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
-    )
-    profile = result.scalars().first()
-    if profile is None or not profile.is_admin:
-        raise api_error(403, "forbidden", "WCS admin access required")
-    return owner_id
-
-
-async def require_wcs_service(
-    caller: tuple[str, PrincipalKind] = Depends(get_current_caller),
-) -> str:
-    """Ensure the caller is a machine (a cog), not a human session."""
-    subject, kind = caller
-    if kind != "machine":
-        raise api_error(403, "forbidden", "WCS service (cog) caller required")
-    return subject
 
 
 # ---------------------------------------------------------------------------

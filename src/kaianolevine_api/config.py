@@ -28,7 +28,6 @@ class Settings(BaseSettings):
     # Clerk JWT (Project Keystone) — required when flags.keystone.clerk_auth_enabled is TRUE
     CLERK_JWKS_URL: str | None = None
     CLERK_ISSUER: str | None = None
-    CLERK_SECRET_KEY: str | None = None
 
     # Multi-issuer form, used by the identity binding. JSON array of
     # {issuer, jwks_url, secret_key}. When unset, the three singular vars

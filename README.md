@@ -138,13 +138,13 @@ accepts either:
 - **Clerk session JWTs** (human users) — RS256, verified locally against
   the JWKS document fetched from `CLERK_JWKS_URL` (cached for 5 minutes).
 - **Clerk M2M opaque tokens** (cogs) — verified via the Clerk BAPI
-  `m2m_tokens/verify` endpoint using `CLERK_SECRET_KEY`.
+  their own named API key, matched locally against configuration.
 
 Required environment variables:
 
 - `CLERK_JWKS_URL` — e.g. `https://clerk.kaianolevine.com/.well-known/jwks.json`
 - `CLERK_ISSUER` — e.g. `https://clerk.kaianolevine.com`
-- `CLERK_SECRET_KEY` — Clerk secret key for opaque-token verification
+- `<MACHINE_NAME>_API_KEY` — one per declared machine (see `identity_registry.MACHINES`)
 
 Header parity is maintained with
 `mini_app_polis.api.KaianoApiClient`: the client attaches

@@ -28,10 +28,8 @@ from sqlalchemy import select
 
 from kaianolevine_api import auth as auth_mod
 from kaianolevine_api.auth import (
-    get_current_caller,
     get_current_owner,
     require_scope,
-    require_wcs_service,
     verify_bearer,
 )
 
@@ -41,7 +39,6 @@ ISSUER = "https://clerk.kaianolevine.com"
 class _SettingsShim:
     CLERK_JWKS_URL = f"{ISSUER}/.well-known/jwks.json"
     CLERK_ISSUER = ISSUER
-    CLERK_SECRET_KEY = "sk_test"
     CLERK_ISSUERS = None
 
 
@@ -77,7 +74,6 @@ async def test_unconfigured_service_rejects_rather_than_admits(
     class _Empty:
         CLERK_JWKS_URL = None
         CLERK_ISSUER = None
-        CLERK_SECRET_KEY = None
         CLERK_ISSUERS = None
 
     with pytest.raises(HTTPException) as exc:
@@ -86,7 +82,7 @@ async def test_unconfigured_service_rejects_rather_than_admits(
 
 
 # ---------------------------------------------------------------------------
-# Legacy dependency contracts — unchanged for the nine routers that use them
+# get_current_owner — retained only for /v1/wcs/me
 # ---------------------------------------------------------------------------
 
 
@@ -102,33 +98,6 @@ async def test_get_current_owner_returns_issuer_subject(
         settings=_SettingsShim(),  # type: ignore[arg-type]
     )
     assert owner == "user_123"
-
-
-@pytest.mark.asyncio
-async def test_get_current_caller_returns_subject_and_kind(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        auth_mod,
-        "verify_bearer",
-        AsyncMock(return_value=_subject("mch_deejay_cog", "machine")),
-    )
-    assert await get_current_caller(
-        authorization="Bearer good",
-        settings=_SettingsShim(),  # type: ignore[arg-type]
-    ) == ("mch_deejay_cog", "machine")
-
-
-@pytest.mark.asyncio
-async def test_require_wcs_service_accepts_machine() -> None:
-    assert await require_wcs_service(("mch_deejay_cog", "machine")) == "mch_deejay_cog"
-
-
-@pytest.mark.asyncio
-async def test_require_wcs_service_rejects_human() -> None:
-    with pytest.raises(HTTPException) as exc:
-        await require_wcs_service(("user_123", "human"))
-    assert exc.value.status_code == 403
 
 
 # ---------------------------------------------------------------------------

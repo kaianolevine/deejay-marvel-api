@@ -12,7 +12,6 @@ from mini_app_polis.logger import LOG_START, LOG_SUCCESS
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import (
-    get_current_owner,
     require_scope,
 )
 from ..config import get_settings
@@ -44,7 +43,7 @@ def _entity_get(kind: str, path: str):
     )
     async def handler(
         slug: str,
-        owner_id: str = Depends(get_current_owner),
+        owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
         session: AsyncSession = Depends(get_db_session),
     ) -> Envelope[WcsEntityViewItem]:
         """Return the full wiki view for one ``kind`` entity by slug.
@@ -58,6 +57,7 @@ def _entity_get(kind: str, path: str):
         :func:`_entity_get` factory so the same handler body serves all
         four WCS wiki entity kinds (concept, technique, pattern, drill).
         """
+        owner_id = owner_id_principal.subject
         settings = get_settings()
         view = await wiki_svc.get_entity_view(session, owner_id, slug=slug, kind=kind)
         if view is None:
@@ -78,7 +78,7 @@ def _entity_list(kind: str, path: str):
         status: Annotated[str | None, Query()] = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
         offset: Annotated[int, Query(ge=0)] = 0,
-        _owner_id: str = Depends(get_current_owner),
+        owner_id_principal: Principal = Depends(require_scope("wcs.notes.read")),
         session: AsyncSession = Depends(get_db_session),
     ) -> Envelope[list[WcsEntityItem]]:
         """Return a paginated list of ``kind`` entities with a total count.
@@ -93,6 +93,7 @@ def _entity_list(kind: str, path: str):
         :func:`_entity_list` factory so the same handler body serves all
         four WCS wiki entity kinds (concept, technique, pattern, drill).
         """
+        _ = owner_id_principal.subject
         settings = get_settings()
         items, total = await wiki_svc.list_entities(
             session, kind=kind, status=status, limit=limit, offset=offset

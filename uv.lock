@@ -400,8 +400,8 @@ wheels = [
 
 [[package]]
 name = "common-python-utils"
-version = "3.2.0"
-source = { git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v3.2.0#e80cd4bd2395903bd43b3d6e98ebcba48d7fdc15" }
+version = "4.0.0"
+source = { git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v4.0.0#5f326f59ae6cea3f9eede73ded84315f2b45e2d2" }
 dependencies = [
     { name = "google-api-python-client" },
     { name = "google-auth" },
@@ -858,8 +858,8 @@ wheels = [
 
 [[package]]
 name = "identity"
-version = "1.1.1"
-source = { git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.1#39bef463c3990be78c7dafe7c506efec46b23dcc" }
+version = "1.1.2"
+source = { git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.2#e38d8eec0eebfb1b9d25f0daa59cb19cb5394b21" }
 dependencies = [
     { name = "httpx" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -1046,11 +1046,11 @@ requires-dist = [
     { name = "aiosqlite", marker = "extra == 'dev'", specifier = ">=0.20,<1.0" },
     { name = "anthropic", specifier = ">=0.40,<1.0" },
     { name = "asyncpg", specifier = ">=0.29,<1.0" },
-    { name = "common-python-utils", git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v3.2.0" },
+    { name = "common-python-utils", git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v4.0.0" },
     { name = "cryptography", specifier = ">=42.0,<44.0" },
     { name = "fastapi", specifier = ">=0.110,<1.0" },
     { name = "httpx", specifier = ">=0.27,<1.0" },
-    { name = "identity", extras = ["store"], git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.1" },
+    { name = "identity", extras = ["store"], git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.2" },
     { name = "openai", specifier = ">=1.40,<2.0" },
     { name = "pgvector", specifier = ">=0.3,<1.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.6,<4.0" },
@@ -2028,8 +2028,8 @@ name = "standard-aifc"
 version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "audioop-lts" },
-    { name = "standard-chunk" },
+    { name = "audioop-lts", marker = "python_full_version >= '3.13'" },
+    { name = "standard-chunk", marker = "python_full_version >= '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c4/53/6050dc3dde1671eb3db592c13b55a8005e5040131f7509cef0215212cb84/standard_aifc-3.13.0.tar.gz", hash = "sha256:64e249c7cb4b3daf2fdba4e95721f811bde8bdfc43ad9f936589b7bb2fae2e43", size = 15240, upload-time = "2024-10-30T16:01:31.772Z" }
 wheels = [
@@ -2050,7 +2050,7 @@ name = "standard-sunau"
 version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "audioop-lts" },
+    { name = "audioop-lts", marker = "python_full_version >= '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/e3/ce8d38cb2d70e05ffeddc28bb09bad77cfef979eb0a299c9117f7ed4e6a9/standard_sunau-3.13.0.tar.gz", hash = "sha256:b319a1ac95a09a2378a8442f403c66f4fd4b36616d6df6ae82b8e536ee790908", size = 9368, upload-time = "2024-10-30T16:01:41.626Z" }
 wheels = [

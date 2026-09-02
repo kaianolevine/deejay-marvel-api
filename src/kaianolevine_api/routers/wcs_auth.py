@@ -264,7 +264,7 @@ async def create_wcs_grant(
     description=(
         "Admin-only. Deletes a single WcsNoteGrant by id and returns "
         "204 No Content. Requires an authenticated WCS admin via "
-        "Depends(require_wcs_admin)."
+        'Depends(require_scope("wcs.grants.write")).'
     ),
     response_model=None,
 )

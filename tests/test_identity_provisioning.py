@@ -27,7 +27,6 @@ from kaianolevine_api.auth import build_verifier, require_scope
 class _Settings:
     CLERK_JWKS_URL = None
     CLERK_ISSUER = None
-    CLERK_SECRET_KEY = None
     CLERK_ISSUERS = None
 
 

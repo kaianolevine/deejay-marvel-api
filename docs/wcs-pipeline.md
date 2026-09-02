@@ -326,7 +326,7 @@ Stateless Prefect flow (per `wiki-curator-cog` ADR-002). One job: read the subst
 
 Flow:
 
-1. Authenticate to the API via Clerk M2M opaque token (the cog's identity per `KAIANO_API_CLERK_MACHINE_SECRET`).
+1. Authenticate to the API with the cog's own named API key (e.g. `TRANSCRIPTION_COG_API_KEY`); the key identifies the cog.
 2. Clone or refresh the `wcs-wiki` repo.
 3. `GET /v1/wcs/wiki/export` — fetch the full canonical graph.
 4. Build in-memory indexes (entities by id and slug, instructors by id, sources by id, attributions grouped by entity and source, etc.).

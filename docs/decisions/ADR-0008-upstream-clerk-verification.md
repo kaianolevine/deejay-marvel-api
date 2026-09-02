@@ -1,5 +1,12 @@
 # 0008. Upstream Clerk token verification to common-python-utils
 
+> **Superseded (Sep 2026).** Machines no longer authenticate through Clerk.
+> They hold named API keys verified locally (`identity.apikey`), and the
+> opaque-token path this ADR describes has been removed: verifying one
+> required calling Clerk on every machine request, putting a third party
+> on the request path. Human session JWTs are unchanged.
+
+
 Date: 2026-06-07
 
 ## Status
