@@ -1,3 +1,10 @@
+## [1.46.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.1...v1.46.2) (2026-09-02)
+
+
+### Bug Fixes
+
+* **auth:** enumerate all three authenticated-only routes in the docstring ([3757ccf](https://github.com/mini-app-polis/api-kaianolevine-com/commit/3757ccf47f59bed0a9b727a701d022ac0d4e8675))
+
 ## [1.46.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.0...v1.46.1) (2026-09-02)
 
 
