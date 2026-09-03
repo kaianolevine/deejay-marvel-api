@@ -1,3 +1,15 @@
+# [1.47.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.4...v1.47.0) (2026-09-03)
+
+
+### Bug Fixes
+
+* **deps:** widen two caps and refresh the lock to clear 43 advisories ([924ee54](https://github.com/mini-app-polis/api-kaianolevine-com/commit/924ee54eb7ffd3d991a82aab19d83ee8bbc274b3))
+
+
+### Features
+
+* **security:** call the shared security workflow ([a8adb23](https://github.com/mini-app-polis/api-kaianolevine-com/commit/a8adb23643e757cebdcdc7b159ab235d0786c6ed))
+
 ## [1.46.4](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.3...v1.46.4) (2026-09-02)
 
 
