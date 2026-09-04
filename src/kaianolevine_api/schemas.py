@@ -1586,3 +1586,51 @@ class WcsGapItem(BaseModel):
     )
     count: int = Field(0, description="Number of items in this response.")
     detail: str = Field("", description="Free-text detail about the gap finding.")
+
+
+class WhoamiVerifiedOut(BaseModel):
+    """What verify saw about the presented credential, before resolve."""
+
+    issuer: str = Field(..., description="Issuer that vouched for this credential.")
+    subject: str = Field(
+        ...,
+        description=(
+            "The exact subject string to seed into identity_principals. This "
+            "is the one value the endpoint exists to report."
+        ),
+    )
+    kind: str = Field(
+        ..., description="Credential class the router selected: human or machine."
+    )
+
+
+class WhoamiPrincipalOut(BaseModel):
+    """The principal this ecosystem has for the verified subject, if any."""
+
+    id: str = Field(..., description="Principal id in identity_principals.")
+    kind: str = Field(..., description="Semantic value for kind.")
+    display_name: str = Field(..., description="Semantic value for display name.")
+    status: str = Field(..., description="Semantic value for status.")
+    roles: list[str] = Field(..., description="Roles held by this principal.")
+
+
+class WhoamiOut(BaseModel):
+    """Diagnostic view of verify and resolve for the calling credential.
+
+    ``principal`` is null when no row exists for the verified subject —
+    the expected state for a newly created machine, and the case this
+    endpoint exists to make legible.
+    """
+
+    enforcement_point: str = Field(
+        ..., description="Which enforcement point answered this request."
+    )
+    verified: WhoamiVerifiedOut = Field(
+        ..., description="What verify established about the credential."
+    )
+    principal: WhoamiPrincipalOut | None = Field(
+        None, description="Resolved principal, or null when none exists yet."
+    )
+    hint: str = Field(
+        ..., description="Next action in prose, for whoever is wiring a principal."
+    )

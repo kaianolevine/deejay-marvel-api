@@ -30,6 +30,7 @@ from .. import auth
 from ..auth import ENFORCEMENT_POINT, resolve_principal
 from ..config import Settings, get_settings
 from ..database import get_db_session
+from ..schemas import WhoamiOut
 
 router = APIRouter()
 
@@ -44,12 +45,24 @@ router = APIRouter()
         "`principal` is null when this ecosystem has no row for that subject "
         "yet, which is the expected state for a newly created Clerk machine."
     ),
+    response_model=WhoamiOut,
 )
 async def whoami(
     authorization: str | None = Header(default=None, alias="Authorization"),
     settings: Settings = Depends(get_settings),
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
+    """Report what verify and resolve saw about the calling credential.
+
+    Runs the first two steps of the four-function contract and returns
+    both, without authorizing anything — the endpoint is a mirror, not a
+    guard. ``verified.subject`` is the string to seed into
+    identity_principals; ``principal`` is null until that row exists.
+
+    Deliberately not scope-guarded: a caller with no principal yet is
+    exactly who needs this, and requiring a scope to discover your own
+    identity would make it useless for that case.
+    """
     # Module-qualified so the call resolves at request time, not import time.
     subject = await auth.verify_bearer(authorization, settings)
     principal = await resolve_principal(subject, session)
