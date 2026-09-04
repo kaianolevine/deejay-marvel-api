@@ -1,3 +1,10 @@
+# [1.49.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.48.0...v1.49.0) (2026-09-04)
+
+
+### Features
+
+* **deploy:** declare resource ceilings (placeholder values) ([63e4dc5](https://github.com/mini-app-polis/api-kaianolevine-com/commit/63e4dc56518402763021f2e2e791b3d001a16540))
+
 # [1.48.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.47.1...v1.48.0) (2026-09-04)
 
 
