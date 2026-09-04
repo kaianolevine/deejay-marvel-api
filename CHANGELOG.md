@@ -1,3 +1,10 @@
+# [1.48.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.47.1...v1.48.0) (2026-09-04)
+
+
+### Features
+
+* **deploy:** declare the restart policy alongside the start command ([09842fb](https://github.com/mini-app-polis/api-kaianolevine-com/commit/09842fbcc13e48f3ba7adecd89c40973c43640d8))
+
 ## [1.47.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.47.0...v1.47.1) (2026-09-04)
 
 
