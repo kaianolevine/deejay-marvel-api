@@ -1,3 +1,10 @@
+# [1.50.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.49.1...v1.50.0) (2026-09-04)
+
+
+### Features
+
+* **ops:** separate the migration role from the request path ([2199104](https://github.com/mini-app-polis/api-kaianolevine-com/commit/219910441a394154509d34d404c0785b65ab6098))
+
 ## [1.49.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.49.0...v1.49.1) (2026-09-04)
 
 
