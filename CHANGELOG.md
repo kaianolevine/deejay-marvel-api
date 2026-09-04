@@ -1,3 +1,10 @@
+## [1.47.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.47.0...v1.47.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **identity:** declare whoami's response shape and document the handler ([08e115b](https://github.com/mini-app-polis/api-kaianolevine-com/commit/08e115b8fc2b14647222f2e19547667772bebb4b))
+
 # [1.47.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.46.4...v1.47.0) (2026-09-03)
 
 
