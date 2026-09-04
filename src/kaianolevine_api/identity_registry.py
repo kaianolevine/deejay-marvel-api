@@ -33,7 +33,6 @@ machines exist and what they may do; configuration says what proves them.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -42,10 +41,11 @@ from identity.store import Issuer as IssuerRow
 from identity.store import Principal as PrincipalRow
 from identity.store import PrincipalRole
 from identity.store import Role as RoleRow
+from mini_app_polis.logger import LOG_FAILURE, LOG_WARNING, get_logger, with_log_prefix
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-_log = logging.getLogger(__name__)
+_log = get_logger()
 
 #: Marks role grants this module owns. Reconciliation only removes these.
 GRANTED_BY = "identity_registry"
@@ -138,9 +138,11 @@ def machine_keys(env: Mapping[str, str]) -> list[MachineKey]:
             keys.append(MachineKey(name=machine.name, key=value))
         else:
             _log.warning(
-                "[identity] %s has no %s; it cannot authenticate",
-                machine.name,
-                machine.key_env_var,
+                with_log_prefix(
+                    LOG_WARNING,
+                    f"[identity] {machine.name} has no {machine.key_env_var}; "
+                    "it cannot authenticate",
+                )
             )
     return keys
 
@@ -190,8 +192,11 @@ async def reconcile(session: AsyncSession) -> dict[str, int]:
         )
         if issuer is None:
             _log.error(
-                "[identity] issuer %r is missing; run the migration that adds it",
-                ISSUER_MACHINES,
+                with_log_prefix(
+                    LOG_FAILURE,
+                    f"[identity] issuer {ISSUER_MACHINES!r} is missing; "
+                    "run the migration that adds it",
+                )
             )
             return {"created": 0, "granted": 0, "revoked": 0}
 
@@ -202,9 +207,11 @@ async def reconcile(session: AsyncSession) -> dict[str, int]:
             # migration, and inventing one here would let a typo mint a role
             # that grants nothing and looks correct in the file.
             _log.error(
-                "[identity] %s declares unknown role(s) %s; skipping",
-                machine.name,
-                sorted(missing),
+                with_log_prefix(
+                    LOG_FAILURE,
+                    f"[identity] {machine.name} declares unknown role(s) "
+                    f"{sorted(missing)}; skipping",
+                )
             )
             continue
 

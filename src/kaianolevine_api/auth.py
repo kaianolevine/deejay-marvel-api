@@ -162,6 +162,15 @@ async def verify_bearer(
 ) -> VerifiedSubject:
     """Verify the Authorization header. Raises 401 on any failure.
 
+    Header parity with the fleet's client (ecosystem-standards AUTH-002):
+    ``KaianoApiClient`` in common-python-utils (``mini_app_polis.api.client``)
+    sends ``Authorization: Bearer <key>`` and nothing else — no custom header,
+    no token exchange, no issuer on the request path. This function is the
+    other half of that agreement, and the scheme comparison below is
+    lower-cased so a client that sends ``bearer`` is not rejected on spelling.
+    A change to the header on either side is a breaking change to both, so it
+    belongs in common-python-utils and here in the same release.
+
     The failure reason is deliberately not returned to the caller — they are
     unauthenticated by definition at this point. It is logged, and where a
     scope is in play it is recorded on the audit event.
