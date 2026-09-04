@@ -1,3 +1,14 @@
+## [1.51.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.0...v1.51.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **deps:** bump anthropic from 0.125.0 to 1.3.0 ([62d0540](https://github.com/mini-app-polis/api-kaianolevine-com/commit/62d0540bd73545252ffdacb5a473a8774d04c730))
+* **deps:** bump openai from 1.109.1 to 3.6.0 ([50a58ef](https://github.com/mini-app-polis/api-kaianolevine-com/commit/50a58efc2884fc6c709dfe73dd38e7082bcef519))
+* **deps:** bump pre-commit from 3.8.0 to 4.6.2 ([db6abfe](https://github.com/mini-app-polis/api-kaianolevine-com/commit/db6abfe0a2e263c544d41aba11450fc20c240e3c))
+* **deps:** repair the lockfile a Dependabot branch merge corrupted ([7695d97](https://github.com/mini-app-polis/api-kaianolevine-com/commit/7695d979881806dd412751e1c18e227646b50f43)), closes [#7](https://github.com/mini-app-polis/api-kaianolevine-com/issues/7)
+* **git:** never three-way merge a lockfile ([a8d205a](https://github.com/mini-app-polis/api-kaianolevine-com/commit/a8d205abf4aed2427ecdf5c40847ee9bd8b5c3bc))
+
 # [1.51.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.50.0...v1.51.0) (2026-09-04)
 
 
