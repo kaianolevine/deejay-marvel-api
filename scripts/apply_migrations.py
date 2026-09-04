@@ -297,9 +297,23 @@ def _parse_bootstrap_exclude(raw: str | None) -> set[str]:
 def main() -> int:
     _setup_logging()
 
-    raw_url = os.environ.get("DATABASE_URL")
+    # OPS-002. Migrations run as the schema-owning role when one is
+    # provisioned. Falling back to DATABASE_URL keeps the deploy working
+    # before that role exists, but says plainly that the separation is not
+    # in effect, so an unset variable is visible in the logs rather than
+    # quietly indistinguishable from a working split.
+    raw_url = os.environ.get("DATABASE_URL_MIGRATIONS")
+    if raw_url:
+        logger.info("Using DATABASE_URL_MIGRATIONS for schema changes.")
+    else:
+        raw_url = os.environ.get("DATABASE_URL")
+        logger.warning(
+            "DATABASE_URL_MIGRATIONS is not set; running migrations as the "
+            "runtime role. DDL privileges are reachable from the request "
+            "path until a schema-owning role is provisioned (OPS-002)."
+        )
     if not raw_url:
-        logger.error("DATABASE_URL environment variable is not set.")
+        logger.error("Neither DATABASE_URL_MIGRATIONS nor DATABASE_URL is set.")
         return 2
 
     database_url = _normalize_database_url(raw_url)

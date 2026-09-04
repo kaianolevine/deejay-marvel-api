@@ -10,6 +10,20 @@ class Settings(BaseSettings):
     """Runtime configuration loaded from environment variables."""
 
     DATABASE_URL: str
+
+    # OPS-002. The connection the migration step uses, bound to a role that
+    # owns the schema. Declared here so the two roles are visible in one
+    # place, but deliberately never read by anything under src/: the whole
+    # point is that the DDL-capable role is unreachable from the request
+    # path. scripts/apply_migrations.py reads the environment variable
+    # directly, and that script runs before uvicorn in the start command.
+    #
+    # Optional, and the migration runner falls back to DATABASE_URL when it
+    # is unset, so the separation can be turned on by provisioning the role
+    # and setting the variable rather than by a deploy that fails until
+    # both happen at once.
+    DATABASE_URL_MIGRATIONS: str | None = None
+
     ENVIRONMENT: str = "development"
     API_VERSION: str = "1.0"
     STANDARDS_VERSION: str = "3.4.2"
