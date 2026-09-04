@@ -1,3 +1,10 @@
+## [1.49.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.49.0...v1.49.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **logging,docs:** shared logger in identity_registry, header parity noted ([b623b6a](https://github.com/mini-app-polis/api-kaianolevine-com/commit/b623b6aff92a65ea0e6fd709694b0b3822344aa7))
+
 # [1.49.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.48.0...v1.49.0) (2026-09-04)
 
 
