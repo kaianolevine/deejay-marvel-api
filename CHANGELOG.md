@@ -1,3 +1,10 @@
+# [1.51.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.50.0...v1.51.0) (2026-09-04)
+
+
+### Features
+
+* **deps:** automate dependency updates ([a2e12e9](https://github.com/mini-app-polis/api-kaianolevine-com/commit/a2e12e95ab19b6c50ea4e75abb30928b45bfb9b5))
+
 # [1.50.0](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.49.1...v1.50.0) (2026-09-04)
 
 
