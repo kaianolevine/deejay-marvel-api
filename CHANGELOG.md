@@ -1,3 +1,10 @@
+## [1.51.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.1...v1.51.2) (2026-09-05)
+
+
+### Bug Fixes
+
+* **wcs:** take profile identity from the verified token, not the request body ([5f4b907](https://github.com/mini-app-polis/api-kaianolevine-com/commit/5f4b9078352e37c8342debf3c2ee73a6f8368890))
+
 ## [1.51.1](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.0...v1.51.1) (2026-09-04)
 
 
