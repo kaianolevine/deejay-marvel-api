@@ -1,3 +1,10 @@
+## [1.51.3](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.2...v1.51.3) (2026-09-05)
+
+
+### Bug Fixes
+
+* **wcs:** mint citation links in the shape the site can actually serve ([a78232d](https://github.com/mini-app-polis/api-kaianolevine-com/commit/a78232d5f3f03135a6f7d9f0d3ea2107a49c7511))
+
 ## [1.51.2](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.1...v1.51.2) (2026-09-05)
 
 
