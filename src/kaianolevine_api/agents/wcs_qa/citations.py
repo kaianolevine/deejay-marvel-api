@@ -378,4 +378,8 @@ async def _resolve_chunk(
 
 
 def _note_url(site_url: str, note_id: uuid.UUID) -> str:
-    return f"{site_url.rstrip('/')}/notes/{note_id}"
+    # /notes/detail?id=, not /notes/<id>. The site is a static build and cannot
+    # serve a path-shaped id without a rewrite; the rewrite that used to do it
+    # looped in production and was removed. This function mints links into that
+    # site, so it has to speak the site's URL shape.
+    return f"{site_url.rstrip('/')}/notes/detail?id={note_id}"

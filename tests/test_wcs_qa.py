@@ -439,7 +439,7 @@ async def test_ask_returns_enriched_citations(client, stub_embedder) -> None:
         assert c["marker"] == 1
         assert c["type"] == "note"
         assert c["id"] == note_id
-        assert c["source_url"].endswith(f"/notes/{note_id}")
+        assert c["source_url"].endswith(f"/notes/detail?id={note_id}")
         # Notes don't carry transcript_id — exclude_none drops it.
         assert "transcript_id" not in c
     finally:

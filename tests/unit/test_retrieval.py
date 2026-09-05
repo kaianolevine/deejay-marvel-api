@@ -442,7 +442,7 @@ async def test_get_note_returns_full_note_with_source_url(
     )
     assert note.note_id == str(ids["n_anchor"])
     assert note.title == "Anchor step deep dive"
-    assert note.source_url == f"{SITE_URL}/notes/{ids['n_anchor']}"
+    assert note.source_url == f"{SITE_URL}/notes/detail?id={ids['n_anchor']}"
     assert "summary" in note.notes_json
 
 
@@ -495,7 +495,7 @@ async def test_get_transcript_window_returns_chunk_with_url(
     assert len(window.chunks) == 1
     assert window.chunks[0].chunk_index == 0
     # Option (b): chunks link to the underlying note's page, not a transcript reader.
-    assert window.source_url == f"{SITE_URL}/notes/{ids['n_anchor']}"
+    assert window.source_url == f"{SITE_URL}/notes/detail?id={ids['n_anchor']}"
 
 
 async def test_get_transcript_window_unknown_chunk_raises(db_session) -> None:

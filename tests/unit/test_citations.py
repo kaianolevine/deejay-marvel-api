@@ -215,7 +215,7 @@ async def test_enrich_note_citation(db_session) -> None:
     assert c.type == "note"
     assert c.title == "Anchor step"
     assert c.session_date == dt.date(2024, 3, 8)
-    assert c.source_url == f"{SITE_URL}/notes/{note.id}"
+    assert c.source_url == f"{SITE_URL}/notes/detail?id={note.id}"
     assert c.transcript_id is None
 
 
@@ -235,7 +235,7 @@ async def test_enrich_chunk_citation(db_session) -> None:
     assert c.transcript_id == str(chunk.transcript_id)
     assert c.title == "Anchor step"
     # Option (b): chunk citations link to the linked note's page.
-    assert c.source_url == f"{SITE_URL}/notes/{note.id}"
+    assert c.source_url == f"{SITE_URL}/notes/detail?id={note.id}"
 
 
 async def test_enrich_drops_unknown_note_id(db_session) -> None:
