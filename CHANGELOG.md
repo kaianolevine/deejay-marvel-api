@@ -1,3 +1,10 @@
+## [1.51.4](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.3...v1.51.4) (2026-09-05)
+
+
+### Bug Fixes
+
+* **deps:** consume miniapppolis-common-utils and miniapppolis-identity from PyPI ([f98d769](https://github.com/mini-app-polis/api-kaianolevine-com/commit/f98d769a5a0892afdd118f31108073e6b92fcd89))
+
 ## [1.51.3](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.2...v1.51.3) (2026-09-05)
 
 
