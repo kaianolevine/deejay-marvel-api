@@ -13,7 +13,7 @@ from kaianolevine_api import auth as auth_mod
 from kaianolevine_api.main import app
 
 
-def _vs(subject: str, kind: str = "human"):
+def _vs(subject: str, kind: str = "human", claims: dict | None = None):
     """A verified credential, stubbed.
 
     Verification moved to the identity binding and is tested there; these
@@ -23,6 +23,7 @@ def _vs(subject: str, kind: str = "human"):
         issuer="https://clerk.kaianolevine.com",
         subject=subject,
         kind=kind,  # type: ignore[arg-type]
+        claims=claims or {},
     )
 
 
@@ -58,6 +59,70 @@ async def test_wcs_me_get_returns_profile(client) -> None:
     d = r.json()["data"]
     assert d["user_id"] == "dev-owner"
     assert d["is_admin"] is True
+
+
+async def test_wcs_me_post_prefers_verified_claims_over_body(client) -> None:
+    """A signed claim outranks whatever the caller put in the body.
+
+    This is the whole point of the change: a valid token plus a body saying
+    someone else's address must not write someone else's address.
+    """
+    original = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(
+        return_value=_vs(
+            "dev-owner",
+            claims={"email": "real@example.com", "name": "Real Person"},
+        )
+    )
+    try:
+        r = await client.post(
+            "/v1/wcs/me",
+            json={"email": "attacker@example.com", "display_name": "Someone Else"},
+        )
+        assert r.status_code == 200
+        d = r.json()["data"]
+        assert d["email"] == "real@example.com"
+        assert d["display_name"] == "Real Person"
+    finally:
+        auth_mod.verify_bearer = original
+
+
+async def test_wcs_me_post_falls_back_to_body_without_claims(client) -> None:
+    """No email claim on the token is the state today, and must still work.
+
+    Clerk's default session token carries no email until a JWT template adds
+    one, so the body remains the fallback. Without this the change would break
+    every existing caller on deploy.
+    """
+    r = await client.post(
+        "/v1/wcs/me",
+        json={"email": "from-body@example.com", "display_name": "Body Name"},
+    )
+    assert r.status_code == 200
+    d = r.json()["data"]
+    assert d["email"] == "from-body@example.com"
+    assert d["display_name"] == "Body Name"
+
+
+async def test_wcs_me_post_derives_name_from_first_and_last(client) -> None:
+    """Clerk templates commonly expose first_name/last_name rather than name."""
+    original = auth_mod.verify_bearer
+    auth_mod.verify_bearer = AsyncMock(
+        return_value=_vs(
+            "dev-owner",
+            claims={
+                "email": "kw@example.com",
+                "first_name": "Kristen",
+                "last_name": "Wallace",
+            },
+        )
+    )
+    try:
+        r = await client.post("/v1/wcs/me", json={"email": "", "display_name": ""})
+        assert r.status_code == 200
+        assert r.json()["data"]["display_name"] == "Kristen Wallace"
+    finally:
+        auth_mod.verify_bearer = original
 
 
 async def test_wcs_me_post_updates_fields(client) -> None:

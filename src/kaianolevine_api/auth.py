@@ -191,6 +191,56 @@ async def verify_bearer(
 
 
 # ---------------------------------------------------------------------------
+# Issuer-asserted identity attributes
+# ---------------------------------------------------------------------------
+
+_EMAIL_CLAIMS = ("email", "primary_email_address", "email_address")
+_NAME_CLAIMS = ("name", "full_name")
+
+
+def identity_from_claims(subject: VerifiedSubject) -> tuple[str, str]:
+    """Return ``(email, display_name)`` as the issuer asserted them.
+
+    A request body is not a source of identity. A caller holding a valid
+    session token can put any address in one, so a profile built from the body
+    records what the caller typed rather than who they are. These claims are
+    signed by the issuer, so preferring them makes the profile say what Clerk
+    says.
+
+    Both come back ``""`` when the session token does not carry them — Clerk's
+    default session token is deliberately minimal and needs a JWT template to
+    include ``email``. Callers should treat an empty result as "not asserted"
+    and fall back to whatever they have, which is what keeps this safe to ship
+    before that template exists and makes it authoritative the moment it does.
+
+    This reads claims only. It never calls Clerk: verification here is offline
+    against cached JWKS, and putting the issuer back on the request path to
+    look up an address would give that up for a display string.
+    """
+    claims: Mapping[str, object] = subject.claims
+
+    def _first(keys: tuple[str, ...]) -> str:
+        for key in keys:
+            value = claims.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+
+    email = _first(_EMAIL_CLAIMS)
+
+    display_name = _first(_NAME_CLAIMS)
+    if not display_name:
+        parts = [
+            str(claims.get(key) or "").strip() for key in ("first_name", "last_name")
+        ]
+        display_name = " ".join(part for part in parts if part)
+    if not display_name:
+        display_name = _first(("username",))
+
+    return email, display_name
+
+
+# ---------------------------------------------------------------------------
 # Legacy dependencies — unchanged contracts, identity-backed internals
 # ---------------------------------------------------------------------------
 

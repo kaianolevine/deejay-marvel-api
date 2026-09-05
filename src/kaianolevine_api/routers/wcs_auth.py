@@ -49,7 +49,9 @@ log = logger_mod.get_logger()
     description=(
         "Upsert a WCS user profile for the caller identified by their Clerk "
         "session credential. "
-        "Creates the row if missing; updates email, display_name, and last_seen_at."
+        "Creates the row if missing; updates email, display_name, and last_seen_at. "
+        "Identity fields come from the verified token's claims when it asserts "
+        "them; the request body is only a fallback for tokens that do not."
     ),
 )
 async def upsert_wcs_me(
@@ -68,6 +70,24 @@ async def upsert_wcs_me(
     """
     subject = await auth.verify_bearer(authorization, settings)
     owner_id = subject.subject
+
+    # The issuer outranks the request body. A caller holding a valid token can
+    # put any address in the body, so a profile written from it records what
+    # the caller typed rather than who they are. The body stays the fallback
+    # because Clerk's default session token carries no email claim until a JWT
+    # template adds one - this is correct before that change and authoritative
+    # after it, with no second deploy.
+    claimed_email, claimed_name = auth.identity_from_claims(subject)
+    email = claimed_email or body.email
+    display_name = claimed_name or body.display_name
+    if not claimed_email and body.email:
+        log.info(
+            "%s WCS profile identity from request body, not claims user_id=%s "
+            "(no email claim on the session token)",
+            LOG_START,
+            owner_id,
+        )
+
     log.info("%s upsert WCS profile user_id=%s", LOG_START, owner_id)
     result = await session.execute(
         select(WcsUserProfile).where(WcsUserProfile.user_id == owner_id)
@@ -78,14 +98,14 @@ async def upsert_wcs_me(
     if profile is None:
         profile = WcsUserProfile(
             user_id=owner_id,
-            email=body.email,
-            display_name=body.display_name,
+            email=email,
+            display_name=display_name,
             last_seen_at=now,
         )
         session.add(profile)
     else:
-        profile.email = body.email or profile.email
-        profile.display_name = body.display_name or profile.display_name
+        profile.email = email or profile.email
+        profile.display_name = display_name or profile.display_name
         profile.last_seen_at = now
 
     await session.commit()
