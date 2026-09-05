@@ -483,26 +483,6 @@ wheels = [
 ]
 
 [[package]]
-name = "common-python-utils"
-version = "4.0.0"
-source = { git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v4.0.0#5f326f59ae6cea3f9eede73ded84315f2b45e2d2" }
-dependencies = [
-    { name = "google-api-python-client" },
-    { name = "google-auth" },
-    { name = "gspread" },
-    { name = "gspread-formatting" },
-    { name = "httpx" },
-    { name = "jsonschema" },
-    { name = "music-tag" },
-    { name = "musicbrainzngs" },
-    { name = "mutagen" },
-    { name = "pyacoustid" },
-    { name = "python-dotenv" },
-    { name = "spotipy" },
-    { name = "tenacity" },
-]
-
-[[package]]
 name = "coverage"
 version = "7.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1054,20 +1034,6 @@ wheels = [
 ]
 
 [[package]]
-name = "identity"
-version = "1.1.2"
-source = { git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.2#e38d8eec0eebfb1b9d25f0daa59cb19cb5394b21" }
-dependencies = [
-    { name = "httpx" },
-    { name = "pyjwt", extra = ["crypto"] },
-]
-
-[package.optional-dependencies]
-store = [
-    { name = "sqlalchemy" },
-]
-
-[[package]]
 name = "idna"
 version = "3.19"
 source = { registry = "https://pypi.org/simple" }
@@ -1205,11 +1171,11 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "asyncpg" },
-    { name = "common-python-utils" },
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "identity", extra = ["store"] },
+    { name = "miniapppolis-common-utils" },
+    { name = "miniapppolis-identity", extra = ["store"] },
     { name = "openai" },
     { name = "pgvector" },
     { name = "pydantic" },
@@ -1239,11 +1205,11 @@ requires-dist = [
     { name = "aiosqlite", marker = "extra == 'dev'", specifier = ">=0.20,<1.0" },
     { name = "anthropic", specifier = ">=0.40,<2.0" },
     { name = "asyncpg", specifier = ">=0.29,<1.0" },
-    { name = "common-python-utils", git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v4.0.0" },
     { name = "cryptography", specifier = ">=44.0.1,<51.0" },
     { name = "fastapi", specifier = ">=0.110,<1.0" },
     { name = "httpx", specifier = ">=0.27,<1.0" },
-    { name = "identity", extras = ["store"], git = "https://github.com/mini-app-polis/identity.git?rev=v1.1.2" },
+    { name = "miniapppolis-common-utils", specifier = ">=5.0,<6" },
+    { name = "miniapppolis-identity", extras = ["store"], specifier = ">=2.0,<3" },
     { name = "openai", specifier = ">=1.40,<2.0" },
     { name = "pgvector", specifier = ">=0.3,<1.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.6,<5.0" },
@@ -1263,6 +1229,48 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27,<1.0" },
 ]
 provides-extras = ["dev"]
+
+[[package]]
+name = "miniapppolis-common-utils"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-python-client" },
+    { name = "google-auth" },
+    { name = "gspread" },
+    { name = "gspread-formatting" },
+    { name = "httpx" },
+    { name = "jsonschema" },
+    { name = "music-tag" },
+    { name = "musicbrainzngs" },
+    { name = "mutagen" },
+    { name = "pyacoustid" },
+    { name = "python-dotenv" },
+    { name = "spotipy" },
+    { name = "tenacity" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b3/e1/0547e60ae88388ec85d975b8e723dc993cbeb4356c78963c54cb6cb89c0c/miniapppolis_common_utils-5.0.1.tar.gz", hash = "sha256:cbb109b7cd49afe97b5e62f7bdd4b17f7512ec0470f1a04411c29d72ab0bd67b", size = 233303, upload-time = "2026-09-05T21:28:52.168Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/69/af/3871224cdcca43d146652f41b1a7ef151ac773b0fd9d50582d747572d5e3/miniapppolis_common_utils-5.0.1-py3-none-any.whl", hash = "sha256:9239b154f7684feec48a56df5ef54c74dabc1f044a8e37a63091fbf53873920b", size = 78597, upload-time = "2026-09-05T21:28:51.02Z" },
+]
+
+[[package]]
+name = "miniapppolis-identity"
+version = "2.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pyjwt", extra = ["crypto"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ab/34/597e61003debc70ebc2b9f9f311e539873d0451bc1019dc150042d85056e/miniapppolis_identity-2.0.1.tar.gz", hash = "sha256:b8a53c377ada61b0bf29f28eae12e46c3500e46baa9030a633f21ce33a997938", size = 8668216, upload-time = "2026-09-05T21:30:40.978Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/2b/4c708e61502250c112cb7857a6c432830a03e8b7be4e3587527cfe345bbe/miniapppolis_identity-2.0.1-py3-none-any.whl", hash = "sha256:3f567f5551bb83c935d9d86e0b866df3487ed7269a412f8ff7274a008b4b1171", size = 25867, upload-time = "2026-09-05T21:30:39.787Z" },
+]
+
+[package.optional-dependencies]
+store = [
+    { name = "sqlalchemy" },
+]
 
 [[package]]
 name = "music-tag"
