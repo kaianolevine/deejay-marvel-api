@@ -1,3 +1,10 @@
+## [1.51.5](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.4...v1.51.5) (2026-09-06)
+
+
+### Bug Fixes
+
+* **release:** source the version from a committed file instead of pyproject.toml ([4a6cf3c](https://github.com/mini-app-polis/api-kaianolevine-com/commit/4a6cf3c499aaffe72e5a522c252a1710df70b544))
+
 ## [1.51.4](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.3...v1.51.4) (2026-09-05)
 
 
