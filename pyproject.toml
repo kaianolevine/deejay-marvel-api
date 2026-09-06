@@ -1,6 +1,6 @@
 [project]
 name = "kaianolevine-api"
-version = "1.51.4"
+dynamic = ["version"]
 description = "FastAPI service powering api.kaianolevine.com — sets, tracks, catalog, stats, evaluations, contact, and resume."
 requires-python = ">=3.11"
 dependencies = [
@@ -38,6 +38,9 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/kaianolevine_api/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kaianolevine_api"]
