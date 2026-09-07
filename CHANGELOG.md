@@ -1,3 +1,10 @@
+## [1.51.7](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.6...v1.51.7) (2026-09-07)
+
+
+### Bug Fixes
+
+* remove uv.lock from release (PY-017) ([0e853b4](https://github.com/mini-app-polis/api-kaianolevine-com/commit/0e853b43abcfd4d6abd4e3a82c8295a4c16240a3))
+
 ## [1.51.6](https://github.com/mini-app-polis/api-kaianolevine-com/compare/v1.51.5...v1.51.6) (2026-09-07)
 
 
