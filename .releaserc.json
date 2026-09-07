@@ -1,5 +1,7 @@
 {
-  "branches": ["main"],
+  "branches": [
+    "main"
+  ],
   "repositoryUrl": "https://github.com/mini-app-polis/api-kaianolevine-com",
   "plugins": [
     "@semantic-release/commit-analyzer",
@@ -13,13 +15,17 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "printf '__version__ = \"%s\"\\n' \"${nextRelease.version}\" > src/kaianolevine_api/_version.py"
+        "prepareCmd": "printf '__version__ = \"%s\"\\n' \"${nextRelease.version}\" > src/kaianolevine_api/_version.py && uv lock"
       }
     ],
     [
       "@semantic-release/git",
       {
-        "assets": ["CHANGELOG.md", "src/kaianolevine_api/_version.py"],
+        "assets": [
+          "CHANGELOG.md",
+          "src/kaianolevine_api/_version.py",
+          "uv.lock"
+        ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ],
